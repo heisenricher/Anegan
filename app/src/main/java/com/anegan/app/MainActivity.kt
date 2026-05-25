@@ -28,6 +28,7 @@ import com.anegan.feature.conversion.VideoToolsScreen
 import com.anegan.feature.conversion.PdfToolsScreen
 import com.anegan.feature.conversion.AudioToolsScreen
 import com.anegan.feature.conversion.BatchConversionScreen
+import com.anegan.feature.conversion.OcrScreen
 import com.anegan.feature.history.HistoryScreen
 import com.anegan.feature.history.BiometricHelper
 
@@ -166,6 +167,10 @@ class MainActivity : FragmentActivity() {
                             )
                         } else if (selectedCategory == "Audio Tools") {
                             AudioToolsScreen(
+                                onBack = { selectedCategory = null }
+                            )
+                        } else if (selectedCategory == "OCR / Extract Text") {
+                            OcrScreen(
                                 onBack = { selectedCategory = null }
                             )
                         } else if (selectedCategory == "Video" || selectedCategory == "Audio") {

@@ -35,6 +35,7 @@ import com.anegan.core.database.ConversionHistoryEntity
 import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
 import kotlinx.coroutines.launch
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +67,9 @@ fun PdfToolsScreen(
     // PDF to Images states
     var imageFormat by remember { mutableStateOf("JPG") }
 
+    // Images to PDF states
+    var selectedImages by remember { mutableStateOf(listOf<Uri>()) }
+
     val pdfPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -81,6 +85,12 @@ fun PdfToolsScreen(
                 }
             }
         }
+    }
+
+    val imageListPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        selectedImages = uris
     }
 
     Column(
@@ -112,35 +122,36 @@ fun PdfToolsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // File Picker Box
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(130.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .clickable { pdfPickerLauncher.launch("application/pdf") },
-            contentAlignment = Alignment.Center
-        ) {
-            if (selectedFileName != null) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
-                    Text(selectedFileName!!, color = MidnightIndigo, fontSize = 15.sp)
-                    val sizeMb = (selectedFileSize ?: 0L) / (1024f * 1024f)
-                    Text(String.format("%.2f MB", sizeMb), color = Color.Gray, fontSize = 12.sp)
+        // File Picker Box (only visible when not in Images -> PDF mode)
+        if (activeTab != "Images → PDF") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .clickable { pdfPickerLauncher.launch("application/pdf") },
+                contentAlignment = Alignment.Center
+            ) {
+                if (selectedFileName != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
+                        Text(selectedFileName!!, color = MidnightIndigo, fontSize = 15.sp)
+                        val sizeMb = (selectedFileSize ?: 0L) / (1024f * 1024f)
+                        Text(String.format("%.2f MB", sizeMb), color = Color.Gray, fontSize = 12.sp)
+                    }
+                } else {
+                    Text("Tap to Select PDF File", color = MidnightIndigo)
                 }
-            } else {
-                Text("Tap to Select PDF File", color = MidnightIndigo)
             }
+            Spacer(modifier = Modifier.height(24.dp))
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
 
         // Tools Tabs
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            val tabs = listOf("Split", "Compress", "Encrypt", "To Images")
+            val tabs = listOf("Split", "Compress", "Encrypt", "To Images", "Images → PDF")
             tabs.forEach { tab ->
                 val isSelected = activeTab == tab
                 Box(
@@ -155,7 +166,7 @@ fun PdfToolsScreen(
                     Text(
                         text = tab,
                         color = if (isSelected) PureWhite else MidnightIndigo,
-                        fontSize = 12.sp
+                        fontSize = 10.sp
                     )
                 }
             }
@@ -250,6 +261,28 @@ fun PdfToolsScreen(
                         }
                     }
                 }
+                "Images → PDF" -> {
+                    Column {
+                        Text("Images to PDF Converter", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.background)
+                                .clickable { imageListPickerLauncher.launch("image/*") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (selectedImages.isNotEmpty()) {
+                                Text("${selectedImages.size} Images Selected (Tap to Change)", color = MidnightIndigo, fontSize = 15.sp)
+                            } else {
+                                Text("Tap to Select Images", color = MidnightIndigo, fontSize = 15.sp)
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -268,9 +301,12 @@ fun PdfToolsScreen(
         // Submit Button
         Button(
             onClick = {
-                val uri = selectedUri
-                if (uri == null) {
+                if (activeTab != "Images → PDF" && selectedUri == null) {
                     Toast.makeText(context, "Please select a PDF file first", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (activeTab == "Images → PDF" && selectedImages.isEmpty()) {
+                    Toast.makeText(context, "Please select images first", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
 
@@ -278,15 +314,52 @@ fun PdfToolsScreen(
 
                 coroutineScope.launch {
                     try {
+                        val converter = NativeDocumentConverter()
+                        val historyDao = DatabaseProvider.getDatabase(context).historyDao()
+
+                        if (activeTab == "Images → PDF") {
+                            val tempFiles = selectedImages.mapNotNull { uri ->
+                                StorageManager.copyUriToTempFile(context, uri)
+                            }
+                            if (tempFiles.isEmpty()) {
+                                isProcessing = false
+                                Toast.makeText(context, "Failed to resolve images", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            val result = converter.imagesToPdf(tempFiles)
+                            isProcessing = false
+
+                            if (result.isSuccess) {
+                                val outFile = result.getOrThrow()
+                                Toast.makeText(context, "Saved to ${outFile.absolutePath}", Toast.LENGTH_LONG).show()
+                                historyDao.insertConversion(
+                                    ConversionHistoryEntity(
+                                        originalFileName = "${tempFiles.size} images",
+                                        outputFileName = outFile.name,
+                                        originalFormat = "IMAGES",
+                                        outputFormat = "PDF",
+                                        status = "SUCCESS",
+                                        timestamp = System.currentTimeMillis(),
+                                        originalSize = tempFiles.fold(0L) { acc, f -> acc + f.length() },
+                                        outputSize = outFile.length(),
+                                        outputPath = outFile.absolutePath
+                                    )
+                                )
+                                selectedImages = emptyList()
+                            } else {
+                                val ex = result.exceptionOrNull()
+                                Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
+                            }
+                            return@launch
+                        }
+
+                        val uri = selectedUri!!
                         val tempFile = StorageManager.copyUriToTempFile(context, uri)
                         if (tempFile == null) {
                             isProcessing = false
                             Toast.makeText(context, "Failed to resolve file", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
-
-                        val converter = NativeDocumentConverter()
-                        val historyDao = DatabaseProvider.getDatabase(context).historyDao()
 
                         when (activeTab) {
                             "Split" -> {
@@ -433,7 +506,7 @@ fun PdfToolsScreen(
             if (isProcessing) {
                 CircularProgressIndicator(color = PureWhite, modifier = Modifier.size(24.dp))
             } else {
-                Text("Process PDF", style = MaterialTheme.typography.titleLarge)
+                Text(if (activeTab == "Images → PDF") "Combine to PDF" else "Process PDF", style = MaterialTheme.typography.titleLarge)
             }
         }
     }

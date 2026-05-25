@@ -41,6 +41,7 @@ val categories = listOf(
     Category("Video Tools", "Trim, compress, speed, GIF"),
     Category("Audio", "Convert MP3, M4A, FLAC"),
     Category("Audio Tools", "Cut audio, ringtones"),
+    Category("OCR / Extract Text", "Image to Text (Offline)"),
     Category("History", "Recent Conversions"),
     Category("Settings", "App Config"),
     Category("Feedback", "Report bugs to GitHub")
