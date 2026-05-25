@@ -43,7 +43,7 @@ class NativeImageConverter : ImageConverter {
                 else -> Bitmap.CompressFormat.JPEG
             }
 
-            val outputFile = File(input.parent, "output_image.${options.format.lowercase()}")
+            val outputFile = File(StorageManager.getAneganOutputDirectory("Images"), "${input.nameWithoutExtension}_converted.${options.format.lowercase()}")
             
             // 3. Compression with target size targeting (Binary Search for Quality)
             if (options.targetSizeBytes != null && compressFormat != Bitmap.CompressFormat.PNG) {

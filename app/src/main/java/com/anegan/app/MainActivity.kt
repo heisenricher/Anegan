@@ -30,6 +30,8 @@ import com.anegan.feature.history.BiometricHelper
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Initialize PDFBox resource loader
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(applicationContext)
         setContent {
             var selectedCategory by remember { mutableStateOf<String?>(null) }
             var isHistoryAuthenticated by remember { mutableStateOf(false) }
