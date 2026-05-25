@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import com.anegan.core.designsystem.theme.AneganTheme
 import com.anegan.feature.dashboard.DashboardScreen
+import com.anegan.feature.dashboard.SettingsScreen
 import com.anegan.feature.conversion.ConversionFlowScreen
 import com.anegan.feature.conversion.MediaConversionScreen
 import com.anegan.feature.conversion.DocumentConversionScreen
@@ -88,7 +89,21 @@ class MainActivity : FragmentActivity() {
                 }
             }
             
-            AneganTheme {
+            val prefs = remember { getSharedPreferences("anegan_settings", MODE_PRIVATE) }
+            val themeSelection = remember(prefs) { prefs.getString("pref_theme_mode", "System") ?: "System" }
+            val dynamicThemePref = remember(prefs) { prefs.getBoolean("pref_dynamic_color", true) }
+            
+            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val darkTheme = when (themeSelection) {
+                "Dark" -> true
+                "Light" -> false
+                else -> isSystemDark
+            }
+            
+            AneganTheme(
+                darkTheme = darkTheme,
+                dynamicColor = dynamicThemePref
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -171,6 +186,10 @@ class MainActivity : FragmentActivity() {
                             )
                         } else if (selectedCategory == "OCR / Extract Text") {
                             OcrScreen(
+                                onBack = { selectedCategory = null }
+                            )
+                        } else if (selectedCategory == "Settings") {
+                            SettingsScreen(
                                 onBack = { selectedCategory = null }
                             )
                         } else if (selectedCategory == "Video" || selectedCategory == "Audio") {
