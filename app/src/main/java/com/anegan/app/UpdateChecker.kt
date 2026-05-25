@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2026 Mahilan (heisenricher). All rights reserved.
+ * 
+ * This source code is licensed under the custom Anegan Attribution License.
+ * Any person or entity using, modifying, or building upon this code must
+ * prominently attribute the original creator Mahilan (heisenricher).
+ * Personal and educational use only.
+ */
+
 package com.anegan.app
 
 import kotlinx.coroutines.Dispatchers
@@ -9,7 +18,9 @@ import java.net.URL
 object UpdateChecker {
     private const val GITHUB_RELEASES_URL = "https://api.github.com/repos/heisenricher/Anegan/releases/latest"
 
-    suspend fun getLatestReleaseVersion(): String? {
+    data class ReleaseInfo(val version: String, val url: String)
+
+    suspend fun getLatestReleaseInfo(): ReleaseInfo? {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL(GITHUB_RELEASES_URL)
@@ -23,12 +34,15 @@ object UpdateChecker {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(response)
                     val tagName = json.getString("tag_name")
+                    val htmlUrl = json.getString("html_url")
+                    
                     // Strip the 'v' prefix if present
-                    if (tagName.startsWith("v", ignoreCase = true)) {
+                    val cleanVersion = if (tagName.startsWith("v", ignoreCase = true)) {
                         tagName.substring(1)
                     } else {
                         tagName
                     }
+                    ReleaseInfo(cleanVersion, htmlUrl)
                 } else {
                     null
                 }

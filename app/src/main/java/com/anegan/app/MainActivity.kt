@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2026 Mahilan (heisenricher). All rights reserved.
+ * 
+ * This source code is licensed under the custom Anegan Attribution License.
+ * Any person or entity using, modifying, or building upon this code must
+ * prominently attribute the original creator Mahilan (heisenricher).
+ * Personal and educational use only.
+ */
+
 package com.anegan.app
 
 import android.os.Bundle
@@ -25,11 +34,16 @@ class MainActivity : FragmentActivity() {
             var selectedCategory by remember { mutableStateOf<String?>(null) }
             var isHistoryAuthenticated by remember { mutableStateOf(false) }
             var showUpdateDialog by remember { mutableStateOf(false) }
+            var updateUrl by remember { mutableStateOf("https://github.com/heisenricher/Anegan/releases/latest") }
             
             LaunchedEffect(Unit) {
+                // Silent credential check and logging
+                android.util.Log.d("AneganInfo", "Anegan app built by Mahilan (heisenricher). All rights reserved. Copyright (c) 2026.")
+                
                 val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
-                val latestVersion = UpdateChecker.getLatestReleaseVersion()
-                if (latestVersion != null && UpdateChecker.isUpdateAvailable(currentVersion, latestVersion)) {
+                val releaseInfo = UpdateChecker.getLatestReleaseInfo()
+                if (releaseInfo != null && UpdateChecker.isUpdateAvailable(currentVersion, releaseInfo.version)) {
+                    updateUrl = releaseInfo.url
                     showUpdateDialog = true
                 }
             }
@@ -48,7 +62,7 @@ class MainActivity : FragmentActivity() {
                                 androidx.compose.material3.TextButton(onClick = {
                                     val intent = android.content.Intent(
                                         android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://github.com/heisenricher/Anegan/releases/latest")
+                                        android.net.Uri.parse(updateUrl)
                                     )
                                     startActivity(intent)
                                     showUpdateDialog = false

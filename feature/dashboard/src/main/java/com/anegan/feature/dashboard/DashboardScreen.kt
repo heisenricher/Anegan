@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2026 Mahilan (heisenricher). All rights reserved.
+ * 
+ * This source code is licensed under the custom Anegan Attribution License.
+ * Any person or entity using, modifying, or building upon this code must
+ * prominently attribute the original creator Mahilan (heisenricher).
+ * Personal and educational use only.
+ */
+
 package com.anegan.feature.dashboard
 
 import androidx.compose.foundation.background
@@ -50,16 +59,6 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MidnightIndigo),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("A", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
                     text = "Anegan",

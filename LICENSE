@@ -1,0 +1,19 @@
+Anegan Attribution and Non-Commercial Use License
+
+Copyright (c) 2026 Mahilan (heisenricher). All rights reserved.
+
+Subject to the terms and conditions of this License, the creator hereby grants you a personal, non-exclusive, non-transferable, non-sublicensable, royalty-free license to use the Anegan application and its source code.
+
+TERMS AND CONDITIONS:
+
+1. Personal Use Only:
+   This software is licensed solely for personal, non-commercial use by individuals. Any commercial exploitation, sale, or distribution of this software or its compiled binaries is strictly prohibited without the prior written consent of the copyright owner.
+
+2. Attribution Requirement:
+   Any distribution, redistribution, modification, compilation, or derivative work built upon this source code (or any portion thereof) must:
+   a. Retain this copyright notice and license in its entirety in all copies or substantial portions of the software.
+   b. Include clear, prominent, and visible attribution to the original creator "Mahilan (heisenricher)" in the user interface of any derivative application (e.g., in an "About" or "Credits" section).
+   c. Retain all embedded silent credentials (including, but not limited to, the meta-data value "com.anegan.copyright" in AndroidManifest.xml and associated startup console logging in the source code).
+
+3. Disclaimer of Warranty:
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

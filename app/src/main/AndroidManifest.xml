@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (c) 2026 Mahilan (heisenricher). All rights reserved.
+  
+  This source code is licensed under the custom Anegan Attribution License.
+  Any person or entity using, modifying, or building upon this code must
+  prominently attribute the original creator Mahilan (heisenricher).
+  Personal and educational use only.
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Storage permissions for saving and loading files -->
@@ -21,6 +29,11 @@
         android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <!-- Silent copyright credentials metadata -->
+        <meta-data
+            android:name="com.anegan.copyright"
+            android:value="Copyright (c) 2026 Mahilan (heisenricher). All rights reserved. This application and its source code are licensed under the Anegan Attribution License. Uncredited reuse or distribution is strictly prohibited." />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2026 Mahilan (heisenricher). All rights reserved.
+ * 
+ * This source code is licensed under the custom Anegan Attribution License.
+ * Any person or entity using, modifying, or building upon this code must
+ * prominently attribute the original creator Mahilan (heisenricher).
+ * Personal and educational use only.
+ */
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,8 +20,8 @@ android {
         applicationId = "com.anegan.app"
         minSdk = 29
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 12
+        versionName = "1.0.12"
     }
 
     buildTypes {
