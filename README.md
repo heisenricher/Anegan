@@ -11,7 +11,7 @@ Aleph is an elegant, minimal, and completely offline application that handles co
 
 You don't need to compile anything. Get the latest release instantly:
 
-### [⬇️ Download Latest APK](https://github.com/YourUsername/Aleph/releases/latest)
+### [⬇️ Download Latest APK](https://github.com/heisenricher/Aleph/releases/latest)
 
 *(Once downloaded, tap the APK file on your Android device to install. Make sure "Install Unknown Apps" is enabled in your settings.)*
 
