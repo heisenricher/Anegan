@@ -3,6 +3,7 @@ package com.anegan.app
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -32,11 +33,7 @@ class MainActivity : FragmentActivity() {
                     if (selectedCategory == null) {
                         DashboardScreen(onCategorySelected = { category -> 
                             if (category == "Feedback") {
-                                val intent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse("https://github.com/heisenricher/Anegan/issues/new")
-                                )
-                                startActivity(intent)
+                                selectedCategory = "Feedback"
                             } else if (category == "History") {
                                 BiometricHelper.authenticate(
                                     activity = this@MainActivity,
@@ -53,11 +50,17 @@ class MainActivity : FragmentActivity() {
                             }
                         })
                     } else {
+                        BackHandler {
+                            selectedCategory = null
+                            isHistoryAuthenticated = false
+                        }
                         if (selectedCategory == "History" && isHistoryAuthenticated) {
                             HistoryScreen(onBack = { 
                                 selectedCategory = null 
                                 isHistoryAuthenticated = false
                             })
+                        } else if (selectedCategory == "Feedback") {
+                            com.anegan.feature.dashboard.FeedbackScreen()
                         } else if (selectedCategory == "Documents") {
                             DocumentConversionScreen(
                                 onBack = { selectedCategory = null }

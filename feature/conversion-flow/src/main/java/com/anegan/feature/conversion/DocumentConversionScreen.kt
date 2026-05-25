@@ -34,10 +34,7 @@ fun DocumentConversionScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MidnightIndigo)) {
-                Text("Back")
-            }
-            Spacer(modifier = Modifier.width(16.dp))
+
             Text(
                 text = "Document Tools",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
