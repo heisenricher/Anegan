@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.aleph.app"
+    namespace = "com.anegan.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.aleph.app"
+        applicationId = "com.anegan.app"
         minSdk = 29
         targetSdk = 34
         versionCode = 1

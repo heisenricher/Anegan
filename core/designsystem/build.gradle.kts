@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aleph.core.designsystem"
+    namespace = "com.anegan.core.designsystem"
     compileSdk = 34
 
     defaultConfig {

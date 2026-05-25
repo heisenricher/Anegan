@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aleph.core.conversion"
+    namespace = "com.anegan.core.conversion"
     compileSdk = 34
 
     defaultConfig {

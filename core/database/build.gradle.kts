@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aleph.core.database"
+    namespace = "com.anegan.core.database"
     compileSdk = 34
     defaultConfig { minSdk = 29 }
     compileOptions {

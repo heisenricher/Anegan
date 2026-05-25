@@ -13,7 +13,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Aleph"
+rootProject.name = "Anegan"
 include(":app")
 include(":core:designsystem")
 include(":core:database")

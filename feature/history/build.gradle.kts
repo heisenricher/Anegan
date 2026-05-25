@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aleph.feature.history"
+    namespace = "com.anegan.feature.history"
     compileSdk = 34
     defaultConfig { minSdk = 29 }
     compileOptions {

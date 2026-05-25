@@ -1,9 +1,9 @@
 <p align="center">
-  <h1 align="center">Aleph</h1>
+  <h1 align="center">Anegan</h1>
   <p align="center"><strong>A Premium, Offline-First File Conversion Toolkit for Android</strong></p>
 </p>
 
-Aleph is an elegant, minimal, and completely offline application that handles conversions for **Documents, Images, Video, and Audio**. Designed with privacy and simplicity in mind, it supports deep advanced settings (like exact file size targeting) without sacrificing its clean, Apple-like user experience.
+Anegan is an elegant, minimal, and completely offline application that handles conversions for **Documents, Images, Video, and Audio**. Designed with privacy and simplicity in mind, it supports deep advanced settings (like exact file size targeting) without sacrificing its clean, Apple-like user experience.
 
 ---
 
@@ -11,7 +11,7 @@ Aleph is an elegant, minimal, and completely offline application that handles co
 
 You don't need to compile anything. Get the latest release instantly:
 
-### [⬇️ Download Latest APK](https://github.com/heisenricher/Aleph/releases/latest)
+### [⬇️ Download Latest APK](https://github.com/heisenricher/Anegan/releases/latest)
 
 *(Once downloaded, tap the APK file on your Android device to install. Make sure "Install Unknown Apps" is enabled in your settings.)*
 

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aleph.feature.conversion"
+    namespace = "com.anegan.feature.conversion"
     compileSdk = 34
     defaultConfig { minSdk = 29 }
     compileOptions {

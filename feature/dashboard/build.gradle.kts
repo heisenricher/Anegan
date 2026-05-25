@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aleph.feature.dashboard"
+    namespace = "com.anegan.feature.dashboard"
     compileSdk = 34
 
     defaultConfig {
