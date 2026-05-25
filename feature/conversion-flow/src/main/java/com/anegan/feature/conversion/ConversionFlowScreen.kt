@@ -70,6 +70,14 @@ fun ConversionFlowScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
+                text = "← ",
+                style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
+                color = MidnightIndigo,
+                modifier = Modifier
+                    .clickable { onBack() }
+                    .padding(end = 12.dp)
+            )
+            Text(
                 text = "$categoryName Conversion",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
                 color = MidnightIndigo

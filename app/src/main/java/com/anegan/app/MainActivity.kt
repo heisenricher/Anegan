@@ -24,6 +24,10 @@ import com.anegan.feature.dashboard.DashboardScreen
 import com.anegan.feature.conversion.ConversionFlowScreen
 import com.anegan.feature.conversion.MediaConversionScreen
 import com.anegan.feature.conversion.DocumentConversionScreen
+import com.anegan.feature.conversion.VideoToolsScreen
+import com.anegan.feature.conversion.PdfToolsScreen
+import com.anegan.feature.conversion.AudioToolsScreen
+import com.anegan.feature.conversion.BatchConversionScreen
 import com.anegan.feature.history.HistoryScreen
 import com.anegan.feature.history.BiometricHelper
 
@@ -47,6 +51,39 @@ class MainActivity : FragmentActivity() {
                 if (releaseInfo != null && UpdateChecker.isUpdateAvailable(currentVersion, releaseInfo.version)) {
                     updateUrl = releaseInfo.url
                     showUpdateDialog = true
+                }
+
+                // Handle share intent
+                val act = intent?.action
+                val typ = intent?.type
+                if (act == android.content.Intent.ACTION_SEND && typ != null) {
+                    val streamUri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)
+                    } else {
+                        @Suppress("DEPRECATION") intent.getParcelableExtra(android.content.Intent.EXTRA_STREAM)
+                    }
+                    if (streamUri != null) {
+                        if (typ.startsWith("image/")) {
+                            selectedCategory = "Images"
+                        } else if (typ.startsWith("video/")) {
+                            selectedCategory = "Video Tools"
+                        } else if (typ.startsWith("audio/")) {
+                            selectedCategory = "Audio Tools"
+                        } else if (typ == "application/pdf") {
+                            selectedCategory = "PDF Tools"
+                        }
+                    }
+                } else if (act == android.content.Intent.ACTION_SEND_MULTIPLE && typ != null) {
+                    val streamUris = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)
+                    } else {
+                        @Suppress("DEPRECATION") intent.getParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM)
+                    }
+                    if (!streamUris.isNullOrEmpty()) {
+                        if (typ.startsWith("image/")) {
+                            selectedCategory = "Batch Image"
+                        }
+                    }
                 }
             }
             
@@ -113,6 +150,22 @@ class MainActivity : FragmentActivity() {
                             com.anegan.feature.dashboard.FeedbackScreen()
                         } else if (selectedCategory == "Documents") {
                             DocumentConversionScreen(
+                                onBack = { selectedCategory = null }
+                            )
+                        } else if (selectedCategory == "PDF Tools") {
+                            PdfToolsScreen(
+                                onBack = { selectedCategory = null }
+                            )
+                        } else if (selectedCategory == "Batch Image") {
+                            BatchConversionScreen(
+                                onBack = { selectedCategory = null }
+                            )
+                        } else if (selectedCategory == "Video Tools") {
+                            VideoToolsScreen(
+                                onBack = { selectedCategory = null }
+                            )
+                        } else if (selectedCategory == "Audio Tools") {
+                            AudioToolsScreen(
                                 onBack = { selectedCategory = null }
                             )
                         } else if (selectedCategory == "Video" || selectedCategory == "Audio") {

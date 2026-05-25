@@ -297,6 +297,14 @@ fun DocumentConversionScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
+                text = "← ",
+                style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
+                color = MidnightIndigo,
+                modifier = Modifier
+                    .clickable { onBack() }
+                    .padding(end = 12.dp)
+            )
+            Text(
                 text = "Document Tools",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
                 color = MidnightIndigo

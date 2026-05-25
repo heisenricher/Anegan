@@ -33,11 +33,14 @@ import com.anegan.core.designsystem.theme.MidnightIndigo
 data class Category(val title: String, val description: String)
 
 val categories = listOf(
-    Category("Documents", "PDF, TXT, DOCX"),
-    Category("Images", "JPG, PNG, WEBP"),
-    Category("Video", "MP4, Resolution"),
-    Category("Audio", "MP3, M4A, FLAC"),
-    Category("Tools", "Split, Merge PDF"),
+    Category("Documents", "Merge, text-to-pdf, unlock"),
+    Category("PDF Tools", "Split, compress, encrypt, images"),
+    Category("Images", "JPG, PNG, WEBP, quality"),
+    Category("Batch Image", "Process multiple images"),
+    Category("Video", "Convert MP4, MKV, AVI"),
+    Category("Video Tools", "Trim, compress, speed, GIF"),
+    Category("Audio", "Convert MP3, M4A, FLAC"),
+    Category("Audio Tools", "Cut audio, ringtones"),
     Category("History", "Recent Conversions"),
     Category("Settings", "App Config"),
     Category("Feedback", "Report bugs to GitHub")
