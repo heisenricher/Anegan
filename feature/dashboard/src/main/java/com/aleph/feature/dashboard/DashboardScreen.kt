@@ -30,8 +30,8 @@ val categories = listOf(
     Category("Audio", "MP3, M4A, FLAC"),
     Category("Tools", "Split, Merge PDF"),
     Category("History", "Recent Conversions"),
-    Category("Favorites", "Quick Presets"),
-    Category("Settings", "App Config")
+    Category("Settings", "App Config"),
+    Category("Feedback", "Report bugs to GitHub")
 )
 
 @Composable

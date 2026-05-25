@@ -31,7 +31,13 @@ class MainActivity : FragmentActivity() {
                 ) {
                     if (selectedCategory == null) {
                         DashboardScreen(onCategorySelected = { category -> 
-                            if (category == "History") {
+                            if (category == "Feedback") {
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://github.com/heisenricher/Aleph/issues/new")
+                                )
+                                startActivity(intent)
+                            } else if (category == "History") {
                                 BiometricHelper.authenticate(
                                     activity = this@MainActivity,
                                     onSuccess = {
