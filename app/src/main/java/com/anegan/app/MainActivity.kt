@@ -30,6 +30,8 @@ import com.anegan.feature.conversion.PdfToolsScreen
 import com.anegan.feature.conversion.AudioToolsScreen
 import com.anegan.feature.conversion.BatchConversionScreen
 import com.anegan.feature.conversion.OcrScreen
+import com.anegan.feature.conversion.ExifScreen
+import com.anegan.feature.conversion.DevToolsScreen
 import com.anegan.feature.history.HistoryScreen
 import com.anegan.feature.history.BiometricHelper
 
@@ -186,6 +188,14 @@ class MainActivity : FragmentActivity() {
                             )
                         } else if (selectedCategory == "OCR / Extract Text") {
                             OcrScreen(
+                                onBack = { selectedCategory = null }
+                            )
+                        } else if (selectedCategory == "EXIF Metadata") {
+                            ExifScreen(
+                                onBack = { selectedCategory = null }
+                            )
+                        } else if (selectedCategory == "Developer Tools") {
+                            DevToolsScreen(
                                 onBack = { selectedCategory = null }
                             )
                         } else if (selectedCategory == "Settings") {
