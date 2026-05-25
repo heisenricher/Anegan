@@ -1,6 +1,7 @@
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -17,8 +18,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     val room_version = "2.6.1"
-    implementation("androidx.room:room-runtime:$room_version")
-    implementation("androidx.room:room-ktx:$room_version")
-    // Note: KSP compiler needed for actual Room code generation
-    // ksp("androidx.room:room-compiler:$room_version")
+    api("androidx.room:room-runtime:$room_version")
+    api("androidx.room:room-ktx:$room_version")
+    kapt("androidx.room:room-compiler:$room_version")
 }
