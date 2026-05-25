@@ -13,6 +13,7 @@ import com.aleph.core.designsystem.theme.AlephTheme
 import com.aleph.feature.dashboard.DashboardScreen
 import com.aleph.feature.conversion.ConversionFlowScreen
 import com.aleph.feature.conversion.MediaConversionScreen
+import com.aleph.feature.conversion.DocumentConversionScreen
 import com.aleph.feature.history.HistoryScreen
 import com.aleph.feature.history.BiometricHelper
 
@@ -51,6 +52,10 @@ class MainActivity : FragmentActivity() {
                                 selectedCategory = null 
                                 isHistoryAuthenticated = false
                             })
+                        } else if (selectedCategory == "Documents") {
+                            DocumentConversionScreen(
+                                onBack = { selectedCategory = null }
+                            )
                         } else if (selectedCategory == "Video" || selectedCategory == "Audio") {
                             MediaConversionScreen(
                                 categoryName = selectedCategory!!,
