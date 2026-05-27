@@ -3,6 +3,12 @@
   <p align="center"><strong>A Premium, Offline-First File Conversion Toolkit for Android</strong></p>
 </p>
 
+<p align="center">
+  <a href="https://github.com/heisenricher/Anegan/releases/latest"><strong>📥 Download Latest Version</strong></a>
+  &nbsp;&bull;&nbsp;
+  <a href="https://github.com/heisenricher/Anegan/releases"><strong>🗂️ View All Versions</strong></a>
+</p>
+
 Anegan is an elegant, minimal, and completely offline application that handles conversions for **Documents, Images, Video, and Audio**. Designed with privacy and simplicity in mind, it supports deep advanced settings (like exact file size targeting) without sacrificing its clean, Apple-like user experience.
 
 ---
