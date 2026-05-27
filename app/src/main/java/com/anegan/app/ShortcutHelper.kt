@@ -37,16 +37,6 @@ object ShortcutHelper {
             })
             .build()
 
-        val askShortcut = ShortcutInfoCompat.Builder(context, "shortcut_ask")
-            .setShortLabel("Ask Anegan")
-            .setLongLabel("Ask Anegan Offline Assistant")
-            .setIcon(IconCompat.createWithResource(context, R.drawable.ic_launcher))
-            .setIntent(Intent(context, MainActivity::class.java).apply {
-                action = "com.anegan.action.SHORTCUT_ASK"
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            })
-            .build()
-
         val historyShortcut = ShortcutInfoCompat.Builder(context, "shortcut_history")
             .setShortLabel("History")
             .setLongLabel("View Conversion History")
@@ -58,7 +48,7 @@ object ShortcutHelper {
             .build()
 
         try {
-            ShortcutManagerCompat.setDynamicShortcuts(context, listOf(imagesShortcut, pdfShortcut, askShortcut, historyShortcut))
+            ShortcutManagerCompat.setDynamicShortcuts(context, listOf(imagesShortcut, pdfShortcut, historyShortcut))
         } catch (e: Exception) {
             android.util.Log.e("AneganShortcuts", "Failed to register launcher shortcuts", e)
         }

@@ -188,11 +188,6 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ── Ask Anegan Banner ──────────────────────────────────────
-        AskAneganBanner(onClick = { onCategorySelected("Ask Anegan") })
-
-        Spacer(modifier = Modifier.height(20.dp))
-
         // ── Favorites ──────────────────────────────────────────────
         if (favoriteTitles.isNotEmpty()) {
             Text(
@@ -388,80 +383,7 @@ fun CategoryCard(
     }
 }
 
-@Composable
-fun AskAneganBanner(onClick: () -> Unit) {
-    val infiniteTransition = rememberInfiniteTransition(label = "ai_pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse_alpha"
-    )
 
-    Box(
-        modifier = androidx.compose.ui.Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(Color(0xFF1A1040), Color(0xFF0F2952)),
-                    start = Offset(0f, 0f),
-                    end = Offset(Float.MAX_VALUE, 0f)
-                )
-            )
-            .border(
-                width = 1.dp,
-                brush = Brush.linearGradient(
-                    colors = listOf(Color(0xFF7C6FFF).copy(alpha = 0.5f), Color(0xFF0F2952))
-                ),
-                shape = RoundedCornerShape(24.dp)
-            )
-            .semantics {
-                contentDescription = "Ask Anegan: Describe what you need using natural language for offline tool routing"
-            }
-            .clickable { onClick() }
-            .padding(20.dp)
-    ) {
-        Row(
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = androidx.compose.ui.Modifier.fillMaxWidth()
-        ) {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                // Animated status dot
-                Box(
-                    modifier = androidx.compose.ui.Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF7C6FFF).copy(alpha = pulseAlpha))
-                )
-                Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Ask Anegan ✨",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Describe what you need — instant tool routing",
-                        color = Color(0xFF9D8FFF),
-                        fontSize = 12.sp
-                    )
-                }
-            }
-            Text(
-                text = "→",
-                color = Color(0xFF7C6FFF),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
 
 @Composable
 fun QuickPresetCard(preset: QuickPreset, onClick: () -> Unit) {
