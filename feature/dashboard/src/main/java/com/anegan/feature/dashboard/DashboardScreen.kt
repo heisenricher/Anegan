@@ -44,6 +44,11 @@ import androidx.compose.ui.unit.sp
 import com.anegan.core.designsystem.theme.MidnightIndigo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 
 data class Category(val title: String, val description: String)
 
@@ -151,6 +156,12 @@ fun DashboardScreen(
     onPresetSelected: (String, Map<String, String>) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("anegan_favorites", Context.MODE_PRIVATE) }
+    var favoriteTitles by remember {
+        mutableStateOf(prefs.getStringSet("favorite_categories", emptySet()) ?: emptySet())
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -182,6 +193,35 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        // ── Favorites ──────────────────────────────────────────────
+        if (favoriteTitles.isNotEmpty()) {
+            Text(
+                text = "Favorites ❤️",
+                style = MaterialTheme.typography.titleMedium,
+                color = MidnightIndigo
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val favoriteCats = categories.filter { favoriteTitles.contains(it.title) }
+                items(favoriteCats) { category ->
+                    FavoriteCategoryCard(
+                        category = category,
+                        onClick = { onCategorySelected(category.title) },
+                        onUnfavorite = {
+                            val newFavorites = favoriteTitles - category.title
+                            favoriteTitles = newFavorites
+                            prefs.edit().putStringSet("favorite_categories", newFavorites).apply()
+                        }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+
         // ── Quick Presets ──────────────────────────────────────────
         Text(
             text = "Quick Presets",
@@ -208,14 +248,94 @@ fun DashboardScreen(
             modifier = Modifier.weight(1f)
         ) {
             items(categories) { category ->
-                CategoryCard(category, onClick = { onCategorySelected(category.title) })
+                val isFav = favoriteTitles.contains(category.title)
+                CategoryCard(
+                    category = category,
+                    isFavorite = isFav,
+                    onFavoriteToggle = {
+                        val newFavorites = if (isFav) {
+                            favoriteTitles - category.title
+                        } else {
+                            favoriteTitles + category.title
+                        }
+                        favoriteTitles = newFavorites
+                        prefs.edit().putStringSet("favorite_categories", newFavorites).apply()
+                    },
+                    onClick = { onCategorySelected(category.title) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun CategoryCard(category: Category, onClick: () -> Unit) {
+fun FavoriteCategoryCard(
+    category: Category,
+    onClick: () -> Unit,
+    onUnfavorite: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(160.dp)
+            .height(100.dp)
+            .semantics {
+                contentDescription = "Favorite Category: ${category.title}. ${category.description}"
+            }
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = category.title,
+                    color = MidnightIndigo,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable { onUnfavorite() }
+                        .wrapContentSize(Alignment.Center)
+                ) {
+                    Text(
+                        text = "❤️",
+                        fontSize = 14.sp
+                    )
+                }
+            }
+            Text(
+                text = category.description,
+                color = Color.Gray,
+                fontSize = 10.sp,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun CategoryCard(
+    category: Category,
+    isFavorite: Boolean,
+    onFavoriteToggle: () -> Unit,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -235,11 +355,29 @@ fun CategoryCard(category: Category, onClick: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = category.title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MidnightIndigo
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = category.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MidnightIndigo,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clickable { onFavoriteToggle() }
+                        .wrapContentSize(Alignment.Center)
+                ) {
+                    Text(
+                        text = if (isFavorite) "⭐" else "☆",
+                        fontSize = 18.sp
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = category.description,
