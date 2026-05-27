@@ -146,6 +146,7 @@ val categories = listOf(
     Category("AI Background Remover", "Isolate subjects offline"),
     Category("Image Watermark",   "Add text watermarks"),
     Category("PDF Reader & Editor", "Read, draw, sign and edit pages"),
+    Category("Compass",           "Offline bearing & orientation sensor"),
     Category("Color Picker",      "Analyze and save palettes"),
     Category("Unit Converter",    "Offline length, mass, data size conversion"),
     Category("History",           "Recent Conversions"),

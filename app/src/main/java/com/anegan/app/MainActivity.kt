@@ -39,6 +39,7 @@ import com.anegan.feature.conversion.BackgroundRemoverScreen
 import com.anegan.feature.conversion.ImageWatermarkScreen
 import com.anegan.feature.conversion.PdfPageOrganizerScreen
 import com.anegan.feature.conversion.PdfReaderEditorScreen
+import com.anegan.feature.conversion.CompassScreen
 import com.anegan.feature.history.HistoryScreen
 import com.anegan.feature.history.BiometricHelper
 import com.anegan.feature.notes.NoteListScreen
@@ -239,7 +240,9 @@ class MainActivity : FragmentActivity() {
                                     ImageWatermarkScreen(onBack = { selectedCategory = null; presetParams = null })
                                  selectedCategory == "PDF Organizer" || selectedCategory == "PDF Reader & Editor" ->
                                      PdfReaderEditorScreen(onBack = { selectedCategory = null; presetParams = null })
-                                selectedCategory == "Settings" ->
+                                 selectedCategory == "Compass" ->
+                                     CompassScreen(onBack = { selectedCategory = null; presetParams = null })
+                                 selectedCategory == "Settings" ->
                                     SettingsScreen(onBack = { selectedCategory = null; presetParams = null })
 
                                 // ── V2.5 NEW SCREENS ──────────────────────────────────────────
