@@ -22,6 +22,12 @@
     <!-- Internet permission for feedback -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Foreground Service & Notifications permissions -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="false"
         android:label="Anegan"
@@ -29,6 +35,12 @@
         android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <!-- WorkManager Foreground Service Override -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="specialUse|dataSync"
+            android:exported="false" />
 
         <!-- Silent copyright credentials metadata -->
         <meta-data

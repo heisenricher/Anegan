@@ -1,10 +1,19 @@
+/*
+ * Copyright (c) 2026 Mahilan (heisenricher). All rights reserved.
+ *
+ * This source code is licensed under the custom Anegan Attribution License.
+ * Any person or entity using, modifying, or building upon this code must
+ * prominently attribute the original creator Mahilan (heisenricher).
+ * Personal and educational use only.
+ */
+
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
 }
 
 android {
-    namespace = "com.anegan.feature.conversion"
+    namespace = "com.anegan.feature.ai"
     compileSdk = 34
     defaultConfig { minSdk = 29 }
     compileOptions {
@@ -23,9 +32,5 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.8.1")
     implementation(project(":core:designsystem"))
-    implementation(project(":core:conversion-engine"))
-    implementation(project(":core:database"))
-    
-    // WorkManager
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation(project(":core:ai-engine"))
 }

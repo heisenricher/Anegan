@@ -28,19 +28,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.conversion.NativeDocumentConverter
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import com.anegan.core.conversion.StorageManager
-import com.anegan.core.database.DatabaseProvider
-import com.anegan.core.database.ConversionHistoryEntity
 import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.core.content.ContextCompat
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import com.anegan.feature.conversion.worker.DocumentConversionWorker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PdfToolsScreen(
     onBack: () -> Unit,
+    presetParams: Map<String, String>? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -51,12 +63,71 @@ fun PdfToolsScreen(
     var selectedFileName by remember { mutableStateOf<String?>(null) }
     var selectedFileSize by remember { mutableStateOf<Long?>(null) }
 
-    var activeTab by remember { mutableStateOf("Split") }
     var isProcessing by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0f) }
+    var currentWorkId by remember { mutableStateOf<UUID?>(null) }
+
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+        if (!isGranted) {
+            Toast.makeText(context, "Notification permission is required to show progress", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(currentWorkId) {
+        val id = currentWorkId ?: return@DisposableEffect onDispose {}
+        val liveData = WorkManager.getInstance(context).getWorkInfoByIdLiveData(id)
+        val observer = androidx.lifecycle.Observer<WorkInfo> { workInfo ->
+            if (workInfo != null) {
+                val progressVal = workInfo.progress.getInt("progress", -1)
+                if (progressVal >= 0) {
+                    progress = progressVal / 100f
+                }
+                
+                if (workInfo.state.isFinished) {
+                    isProcessing = false
+                    if (workInfo.state == WorkInfo.State.SUCCEEDED) {
+                        val outName = workInfo.outputData.getString("outputFileName") ?: "file"
+                        Toast.makeText(context, "Saved to $outName", Toast.LENGTH_LONG).show()
+                        selectedUri = null
+                        selectedFileName = null
+                        selectedFileSize = null
+                    } else {
+                        val err = workInfo.outputData.getString("error") ?: "Failed"
+                        Toast.makeText(context, "Failed: $err", Toast.LENGTH_LONG).show()
+                    }
+                    currentWorkId = null
+                }
+            }
+        }
+        liveData.observe(lifecycleOwner, observer)
+        onDispose {
+            liveData.removeObserver(observer)
+        }
+    }
+
+    var activeTab by remember { mutableStateOf(presetParams?.get("tab") ?: "Split") }
+
 
     // Split states
-    var startPage by remember { mutableStateOf("1") }
-    var endPage by remember { mutableStateOf("2") }
+    var startPage by remember { mutableStateOf(presetParams?.get("startPage") ?: "1") }
+    var endPage by remember { mutableStateOf(presetParams?.get("endPage") ?: "2") }
 
     // Compress states
     var dpiValue by remember { mutableStateOf(150f) }
@@ -105,14 +176,19 @@ fun PdfToolsScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "← ",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 26.sp),
-                color = MidnightIndigo,
+            IconButton(
+                onClick = onBack,
                 modifier = Modifier
-                    .clickable { onBack() }
-                    .padding(end = 12.dp)
-            )
+                    .size(48.dp)
+                    .semantics { contentDescription = "Go back to dashboard" }
+            ) {
+                Text(
+                    text = "←",
+                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 26.sp),
+                    color = MidnightIndigo
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "PDF Tools",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 26.sp),
@@ -130,6 +206,7 @@ fun PdfToolsScreen(
                     .height(130.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surface)
+                    .semantics { contentDescription = if (selectedFileName != null) "Selected PDF: $selectedFileName" else "Select a PDF file from device storage" }
                     .clickable { pdfPickerLauncher.launch("application/pdf") },
                 contentAlignment = Alignment.Center
             ) {
@@ -159,6 +236,7 @@ fun PdfToolsScreen(
                         .weight(1f)
                         .clip(RoundedCornerShape(20.dp))
                         .background(if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.surface)
+                        .semantics { contentDescription = "Switch to $tab mode" }
                         .clickable { activeTab = tab }
                         .padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center
@@ -218,7 +296,8 @@ fun PdfToolsScreen(
                             onValueChange = { dpiValue = it },
                             valueRange = 72f..300f,
                             steps = 3, // 72, 148, 224, 300 etc.
-                            colors = SliderDefaults.colors(thumbColor = MidnightIndigo, activeTrackColor = MidnightIndigo)
+                            colors = SliderDefaults.colors(thumbColor = MidnightIndigo, activeTrackColor = MidnightIndigo),
+                            modifier = Modifier.semantics { contentDescription = "Resolution slider, active value ${dpiValue.toInt()} DPI" }
                         )
                     }
                 }
@@ -272,6 +351,7 @@ fun PdfToolsScreen(
                                 .height(120.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(MaterialTheme.colorScheme.background)
+                                .semantics { contentDescription = if (selectedImages.isNotEmpty()) "${selectedImages.size} images selected. Tap to change selection" else "Select images to combine into PDF" }
                                 .clickable { imageListPickerLauncher.launch("image/*") },
                             contentAlignment = Alignment.Center
                         ) {
@@ -288,12 +368,17 @@ fun PdfToolsScreen(
 
         if (isProcessing) {
             Spacer(modifier = Modifier.height(24.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = MidnightIndigo)
-            }
+            Text("Progress: ${(progress * 100).toInt()}%", color = MidnightIndigo, style = MaterialTheme.typography.bodyLarge)
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = MidnightIndigo,
+                trackColor = MaterialTheme.colorScheme.surface
+            )
         }
 
         Spacer(modifier = Modifier.height(40.dp))
@@ -310,186 +395,101 @@ fun PdfToolsScreen(
                     return@Button
                 }
 
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    return@Button
+                }
+
+                // If doing Encrypt, validate password first
+                if (activeTab == "Encrypt" && passwordValue.isBlank()) {
+                    Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_LONG).show()
+                    return@Button
+                }
+
+                // If doing Split, validate page range first
+                if (activeTab == "Split") {
+                    val start = startPage.toIntOrNull()
+                    val end = endPage.toIntOrNull()
+                    if (start == null || end == null || start <= 0 || end < start) {
+                        Toast.makeText(context, "Invalid page range", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+                }
+
                 isProcessing = true
+                progress = 0f
 
                 coroutineScope.launch {
                     try {
-                        val converter = NativeDocumentConverter()
-                        val historyDao = DatabaseProvider.getDatabase(context).historyDao()
-
                         if (activeTab == "Images → PDF") {
-                            val tempFiles = selectedImages.mapNotNull { uri ->
-                                StorageManager.copyUriToTempFile(context, uri)
+                            val tempFiles = withContext(Dispatchers.IO) {
+                                selectedImages.mapNotNull { uri ->
+                                    StorageManager.copyUriToTempFile(context, uri)
+                                }
                             }
                             if (tempFiles.isEmpty()) {
                                 isProcessing = false
                                 Toast.makeText(context, "Failed to resolve images", Toast.LENGTH_SHORT).show()
                                 return@launch
                             }
-                            val result = converter.imagesToPdf(tempFiles)
-                            isProcessing = false
-
-                            if (result.isSuccess) {
-                                val outFile = result.getOrThrow()
-                                Toast.makeText(context, "Saved to ${outFile.absolutePath}", Toast.LENGTH_LONG).show()
-                                historyDao.insertConversion(
-                                    ConversionHistoryEntity(
-                                        originalFileName = "${tempFiles.size} images",
-                                        outputFileName = outFile.name,
-                                        originalFormat = "IMAGES",
-                                        outputFormat = "PDF",
-                                        status = "SUCCESS",
-                                        timestamp = System.currentTimeMillis(),
-                                        originalSize = tempFiles.fold(0L) { acc, f -> acc + f.length() },
-                                        outputSize = outFile.length(),
-                                        outputPath = outFile.absolutePath
+                            
+                            val tempPaths = tempFiles.joinToString(",") { it.absolutePath }
+                            val totalSize = tempFiles.sumOf { it.length() }
+                            
+                            val workRequest = OneTimeWorkRequestBuilder<DocumentConversionWorker>()
+                                .setInputData(
+                                    workDataOf(
+                                        "operation" to "IMAGES_TO_PDF",
+                                        "tempFilePaths" to tempPaths,
+                                        "originalFileName" to "${tempFiles.size} images",
+                                        "originalFileSize" to totalSize
                                     )
                                 )
-                                selectedImages = emptyList()
-                            } else {
-                                val ex = result.exceptionOrNull()
-                                Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
+                                .build()
+                            
+                            WorkManager.getInstance(context).enqueue(workRequest)
+                            currentWorkId = workRequest.id
+                            selectedImages = emptyList()
+                        } else {
+                            val uri = selectedUri!!
+                            val tempFile = withContext(Dispatchers.IO) {
+                                StorageManager.copyUriToTempFile(context, uri)
                             }
-                            return@launch
-                        }
-
-                        val uri = selectedUri!!
-                        val tempFile = StorageManager.copyUriToTempFile(context, uri)
-                        if (tempFile == null) {
-                            isProcessing = false
-                            Toast.makeText(context, "Failed to resolve file", Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-
-                        when (activeTab) {
-                            "Split" -> {
-                                val start = startPage.toIntOrNull()
-                                val end = endPage.toIntOrNull()
-                                if (start == null || end == null || start <= 0 || end < start) {
-                                    isProcessing = false
-                                    Toast.makeText(context, "Invalid page range", Toast.LENGTH_LONG).show()
-                                    return@launch
-                                }
-                                val result = converter.splitPdf(tempFile, start, end)
+                            if (tempFile == null) {
                                 isProcessing = false
+                                Toast.makeText(context, "Failed to resolve file", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
 
-                                if (result.isSuccess) {
-                                    val outFile = result.getOrThrow()
-                                    Toast.makeText(context, "Saved to ${outFile.absolutePath}", Toast.LENGTH_LONG).show()
-                                    historyDao.insertConversion(
-                                        ConversionHistoryEntity(
-                                            originalFileName = selectedFileName ?: tempFile.name,
-                                            outputFileName = outFile.name,
-                                            originalFormat = "PDF",
-                                            outputFormat = "PDF",
-                                            status = "SUCCESS",
-                                            timestamp = System.currentTimeMillis(),
-                                            originalSize = selectedFileSize ?: tempFile.length(),
-                                            outputSize = outFile.length(),
-                                            outputPath = outFile.absolutePath
-                                        )
+                            val operation = when (activeTab) {
+                                "Split" -> "SPLIT_PDF"
+                                "Compress" -> "COMPRESS_PDF"
+                                "Encrypt" -> "ENCRYPT_PDF"
+                                "To Images" -> "PDF_TO_IMAGES"
+                                else -> throw Exception("Unknown active tab")
+                            }
+
+                            val start = startPage.toIntOrNull() ?: 1
+                            val end = endPage.toIntOrNull() ?: 1
+                            
+                            val workRequest = OneTimeWorkRequestBuilder<DocumentConversionWorker>()
+                                .setInputData(
+                                    workDataOf(
+                                        "operation" to operation,
+                                        "tempFilePath" to tempFile.absolutePath,
+                                        "originalFileName" to (selectedFileName ?: tempFile.name),
+                                        "originalFileSize" to (selectedFileSize ?: tempFile.length()),
+                                        "startPage" to start,
+                                        "endPage" to end,
+                                        "dpi" to dpiValue.toInt(),
+                                        "password" to passwordValue,
+                                        "format" to imageFormat.lowercase()
                                     )
-                                    selectedUri = null
-                                    selectedFileName = null
-                                    selectedFileSize = null
-                                } else {
-                                    val ex = result.exceptionOrNull()
-                                    Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                            "Compress" -> {
-                                val result = converter.compressPdf(tempFile, dpiValue.toInt())
-                                isProcessing = false
-
-                                if (result.isSuccess) {
-                                    val outFile = result.getOrThrow()
-                                    Toast.makeText(context, "Saved to ${outFile.absolutePath}", Toast.LENGTH_LONG).show()
-                                    historyDao.insertConversion(
-                                        ConversionHistoryEntity(
-                                            originalFileName = selectedFileName ?: tempFile.name,
-                                            outputFileName = outFile.name,
-                                            originalFormat = "PDF",
-                                            outputFormat = "PDF",
-                                            status = "SUCCESS",
-                                            timestamp = System.currentTimeMillis(),
-                                            originalSize = selectedFileSize ?: tempFile.length(),
-                                            outputSize = outFile.length(),
-                                            outputPath = outFile.absolutePath
-                                        )
-                                    )
-                                    selectedUri = null
-                                    selectedFileName = null
-                                    selectedFileSize = null
-                                } else {
-                                    val ex = result.exceptionOrNull()
-                                    Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                            "Encrypt" -> {
-                                if (passwordValue.isBlank()) {
-                                    isProcessing = false
-                                    Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_LONG).show()
-                                    return@launch
-                                }
-                                val result = converter.encryptPdf(tempFile, passwordValue)
-                                isProcessing = false
-
-                                if (result.isSuccess) {
-                                    val outFile = result.getOrThrow()
-                                    Toast.makeText(context, "Saved to ${outFile.absolutePath}", Toast.LENGTH_LONG).show()
-                                    historyDao.insertConversion(
-                                        ConversionHistoryEntity(
-                                            originalFileName = selectedFileName ?: tempFile.name,
-                                            outputFileName = outFile.name,
-                                            originalFormat = "PDF",
-                                            outputFormat = "PDF",
-                                            status = "SUCCESS",
-                                            timestamp = System.currentTimeMillis(),
-                                            originalSize = selectedFileSize ?: tempFile.length(),
-                                            outputSize = outFile.length(),
-                                            outputPath = outFile.absolutePath
-                                        )
-                                    )
-                                    selectedUri = null
-                                    selectedFileName = null
-                                    selectedFileSize = null
-                                } else {
-                                    val ex = result.exceptionOrNull()
-                                    Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                            "To Images" -> {
-                                val result = converter.pdfToImages(tempFile, imageFormat.lowercase())
-                                isProcessing = false
-
-                                if (result.isSuccess) {
-                                    val outFiles = result.getOrThrow()
-                                    if (outFiles.isNotEmpty()) {
-                                        Toast.makeText(context, "Exported ${outFiles.size} images to ${outFiles.first().parent}", Toast.LENGTH_LONG).show()
-                                        historyDao.insertConversion(
-                                            ConversionHistoryEntity(
-                                                originalFileName = selectedFileName ?: tempFile.name,
-                                                outputFileName = "${tempFile.nameWithoutExtension}_pages",
-                                                originalFormat = "PDF",
-                                                outputFormat = imageFormat,
-                                                status = "SUCCESS",
-                                                timestamp = System.currentTimeMillis(),
-                                                originalSize = selectedFileSize ?: tempFile.length(),
-                                                outputSize = outFiles.fold(0L) { acc, file -> acc + file.length() },
-                                                outputPath = outFiles.first().absolutePath
-                                            )
-                                        )
-                                    } else {
-                                        Toast.makeText(context, "No pages converted", Toast.LENGTH_LONG).show()
-                                    }
-                                    selectedUri = null
-                                    selectedFileName = null
-                                    selectedFileSize = null
-                                } else {
-                                    val ex = result.exceptionOrNull()
-                                    Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
-                                }
-                            }
+                                )
+                                .build()
+                            
+                            WorkManager.getInstance(context).enqueue(workRequest)
+                            currentWorkId = workRequest.id
                         }
                     } catch (e: Exception) {
                         isProcessing = false

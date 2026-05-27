@@ -1,6 +1,9 @@
 package com.anegan.feature.conversion
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,12 +24,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.anegan.core.conversion.StorageManager
-import com.anegan.core.database.DatabaseProvider
-import com.anegan.core.database.ConversionHistoryEntity
 import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
+import com.anegan.feature.conversion.worker.MediaConversionWorker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.UUID
 
 @Composable
 fun MediaConversionScreen(
@@ -46,6 +56,62 @@ fun MediaConversionScreen(
 
     var isConverting by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
+    var currentWorkId by remember { mutableStateOf<UUID?>(null) }
+
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+        if (!isGranted) {
+            Toast.makeText(context, "Notification permission is required to show progress", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(currentWorkId) {
+        val id = currentWorkId ?: return@DisposableEffect onDispose {}
+        val liveData = WorkManager.getInstance(context).getWorkInfoByIdLiveData(id)
+        val observer = androidx.lifecycle.Observer<WorkInfo> { workInfo ->
+            if (workInfo != null) {
+                val progressVal = workInfo.progress.getInt("progress", -1)
+                if (progressVal >= 0) {
+                    progress = progressVal / 100f
+                }
+                
+                if (workInfo.state.isFinished) {
+                    isConverting = false
+                    if (workInfo.state == WorkInfo.State.SUCCEEDED) {
+                        val outName = workInfo.outputData.getString("outputFileName") ?: "file"
+                        Toast.makeText(context, "Saved to $outName", Toast.LENGTH_LONG).show()
+                        selectedUri = null
+                        selectedFileName = null
+                        selectedFileSize = null
+                    } else {
+                        val err = workInfo.outputData.getString("error") ?: "Failed"
+                        Toast.makeText(context, "Failed: $err", Toast.LENGTH_LONG).show()
+                    }
+                    currentWorkId = null
+                }
+            }
+        }
+        liveData.observe(lifecycleOwner, observer)
+        onDispose {
+            liveData.removeObserver(observer)
+        }
+    }
 
     val mediaPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -177,79 +243,50 @@ fun MediaConversionScreen(
                     Toast.makeText(context, "Please select a media file first", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    return@Button
+                }
+
                 isConverting = true
                 progress = 0f
                 coroutineScope.launch {
                     try {
-                        val tempFile = StorageManager.copyUriToTempFile(context, uri)
+                        val tempFile = withContext(Dispatchers.IO) {
+                            StorageManager.copyUriToTempFile(context, uri)
+                        }
                         if (tempFile == null) {
                             isConverting = false
                             Toast.makeText(context, "Failed to resolve file", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
 
-                        val converter = com.anegan.core.conversion.FFmpegMediaConverter()
-                        val historyDao = DatabaseProvider.getDatabase(context).historyDao()
-
-                        val result = if (isVideo) {
-                            val resParam = when (selectedResolution) {
+                        val operation = if (isVideo) "CONVERT_VIDEO" else "EXTRACT_AUDIO"
+                        val targetResolution = if (isVideo) {
+                            when (selectedResolution) {
                                 "1080p" -> "1920:1080"
                                 "720p" -> "1280:720"
                                 else -> null
                             }
-                            val options = com.anegan.core.conversion.VideoConversionOptions(
-                                outputFormat = selectedFormat.lowercase(),
-                                targetResolution = resParam
-                            )
-                            converter.convertVideo(tempFile, options) { p ->
-                                progress = p
-                            }
-                        } else {
-                            val options = com.anegan.core.conversion.AudioExtractionOptions(
-                                targetFormat = selectedFormat.lowercase()
-                            )
-                            converter.extractAudio(tempFile, options) { p ->
-                                progress = p
-                            }
-                        }
+                        } else null
 
-                        isConverting = false
-                        if (result.isSuccess) {
-                            val outFile = result.getOrThrow()
-                            Toast.makeText(context, "Saved to ${outFile.absolutePath}", Toast.LENGTH_LONG).show()
-                            historyDao.insertConversion(
-                                ConversionHistoryEntity(
-                                    originalFileName = selectedFileName ?: tempFile.name,
-                                    outputFileName = outFile.name,
-                                    originalFormat = tempFile.extension.uppercase(),
-                                    outputFormat = selectedFormat,
-                                    status = "SUCCESS",
-                                    timestamp = System.currentTimeMillis(),
-                                    originalSize = selectedFileSize ?: tempFile.length(),
-                                    outputSize = outFile.length(),
-                                    outputPath = outFile.absolutePath
+                        val workRequest = OneTimeWorkRequestBuilder<MediaConversionWorker>()
+                            .setInputData(
+                                workDataOf(
+                                    "operation" to operation,
+                                    "tempFilePath" to tempFile.absolutePath,
+                                    "originalFileName" to (selectedFileName ?: tempFile.name),
+                                    "originalFileSize" to (selectedFileSize ?: tempFile.length()),
+                                    "outputFormat" to selectedFormat,
+                                    "targetFormat" to selectedFormat,
+                                    "targetResolution" to targetResolution
                                 )
                             )
-                            selectedUri = null
-                            selectedFileName = null
-                            selectedFileSize = null
-                        } else {
-                            val ex = result.exceptionOrNull()
-                            Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
-                            historyDao.insertConversion(
-                                ConversionHistoryEntity(
-                                    originalFileName = selectedFileName ?: tempFile.name,
-                                    outputFileName = "",
-                                    originalFormat = tempFile.extension.uppercase(),
-                                    outputFormat = selectedFormat,
-                                    status = "FAILED",
-                                    timestamp = System.currentTimeMillis(),
-                                    originalSize = selectedFileSize ?: tempFile.length(),
-                                    outputSize = 0,
-                                    outputPath = ""
-                                )
-                            )
-                        }
+                            .build()
+                        
+                        WorkManager.getInstance(context).enqueue(workRequest)
+                        currentWorkId = workRequest.id
                     } catch (e: Exception) {
                         isConverting = false
                         Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()

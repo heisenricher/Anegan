@@ -14,3 +14,23 @@
 -keepclassmembers class * extends androidx.lifecycle.ViewModel {
     <init>(...);
 }
+
+# Google Play Services & ML Kit (OCR / Segmenter)
+-keep class com.google.android.gms.internal.** { *; }
+-dontwarn com.google.android.gms.internal.**
+-keep class com.google.android.gms.tasks.** { *; }
+-dontwarn com.google.android.gms.tasks.**
+-keep class com.google.mlkit.** { *; }
+-dontwarn com.google.mlkit.**
+
+# ZXing Barcode Scanning
+-keep class com.google.zxing.** { *; }
+-dontwarn com.google.zxing.**
+
+# Room Database
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn androidx.room.**
+
+# WorkManager
+-keep class androidx.work.** { *; }
+-dontwarn androidx.work.**

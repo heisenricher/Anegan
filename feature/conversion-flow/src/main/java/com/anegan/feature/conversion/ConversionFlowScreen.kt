@@ -9,7 +9,10 @@
 
 package com.anegan.feature.conversion
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,48 +31,120 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.conversion.NativeImageConverter
-import com.anegan.core.conversion.ImageConversionOptions
+import androidx.core.content.ContextCompat
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.anegan.core.conversion.StorageManager
-import com.anegan.core.database.DatabaseProvider
-import com.anegan.core.database.ConversionHistoryEntity
 import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
+import com.anegan.feature.conversion.worker.ImageBatchConversionWorker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversionFlowScreen(
     categoryName: String,
     onBack: () -> Unit,
+    presetParams: Map<String, String>? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    var quality by remember { mutableStateOf(0.8f) }
+    var quality by remember {
+        val qStr = presetParams?.get("quality")
+        val qVal = qStr?.toFloatOrNull()?.let { it / 100f } ?: 0.8f
+        mutableStateOf(qVal)
+    }
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var selectedFileName by remember { mutableStateOf<String?>(null) }
     var selectedFileSize by remember { mutableStateOf<Long?>(null) }
     var isConverting by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0f) }
+    var currentWorkId by remember { mutableStateOf<UUID?>(null) }
+
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+        if (!isGranted) {
+            Toast.makeText(context, "Notification permission is required to show progress", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(currentWorkId) {
+        val id = currentWorkId ?: return@DisposableEffect onDispose {}
+        val liveData = WorkManager.getInstance(context).getWorkInfoByIdLiveData(id)
+        val observer = androidx.lifecycle.Observer<WorkInfo> { workInfo ->
+            if (workInfo != null) {
+                val progressVal = workInfo.progress.getInt("progress", -1)
+                if (progressVal >= 0) {
+                    progress = progressVal / 100f
+                }
+                
+                if (workInfo.state.isFinished) {
+                    isConverting = false
+                    if (workInfo.state == WorkInfo.State.SUCCEEDED) {
+                        val outName = workInfo.outputData.getString("outputFileName") ?: "file"
+                        Toast.makeText(context, "Saved to $outName", Toast.LENGTH_LONG).show()
+                        selectedUri = null
+                        selectedFileName = null
+                        selectedFileSize = null
+                    } else {
+                        val err = workInfo.outputData.getString("error") ?: "Failed"
+                        Toast.makeText(context, "Failed: $err", Toast.LENGTH_LONG).show()
+                    }
+                    currentWorkId = null
+                }
+            }
+        }
+        liveData.observe(lifecycleOwner, observer)
+        onDispose {
+            liveData.removeObserver(observer)
+        }
+    }
 
     // Target format selection (replaces raw target format being equal to screen name)
-    var targetFormat by remember { mutableStateOf(if (categoryName == "Images") "JPG" else categoryName) }
+    var targetFormat by remember {
+        mutableStateOf(presetParams?.get("targetFormat") ?: if (categoryName == "Images") "JPG" else categoryName)
+    }
 
     // Resize inputs
-    var resizeWidth by remember { mutableStateOf("") }
-    var resizeHeight by remember { mutableStateOf("") }
+    var resizeWidth by remember { mutableStateOf(presetParams?.get("resizeWidth") ?: "") }
+    var resizeHeight by remember { mutableStateOf(presetParams?.get("resizeHeight") ?: "") }
 
     // Rotation inputs
-    var rotationValue by remember { mutableStateOf(0f) }
+    var rotationValue by remember {
+        val rotVal = presetParams?.get("rotation")?.toFloatOrNull() ?: 0f
+        mutableStateOf(rotVal)
+    }
 
     // Crop inputs
-    var cropX by remember { mutableStateOf("") }
-    var cropY by remember { mutableStateOf("") }
-    var cropW by remember { mutableStateOf("") }
-    var cropH by remember { mutableStateOf("") }
+    var cropX by remember { mutableStateOf(presetParams?.get("cropX") ?: "") }
+    var cropY by remember { mutableStateOf(presetParams?.get("cropY") ?: "") }
+    var cropW by remember { mutableStateOf(presetParams?.get("cropW") ?: "") }
+    var cropH by remember { mutableStateOf(presetParams?.get("cropH") ?: "") }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -265,12 +340,17 @@ fun ConversionFlowScreen(
 
         if (isConverting) {
             Spacer(modifier = Modifier.height(24.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = MidnightIndigo)
-            }
+            Text("Progress: ${(progress * 100).toInt()}%", color = MidnightIndigo, style = MaterialTheme.typography.bodyLarge)
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = MidnightIndigo,
+                trackColor = MaterialTheme.colorScheme.surface
+            )
         }
 
         Spacer(modifier = Modifier.height(40.dp))
@@ -283,10 +363,19 @@ fun ConversionFlowScreen(
                     Toast.makeText(context, "Please select an image first", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    return@Button
+                }
+
                 isConverting = true
+                progress = 0f
                 coroutineScope.launch {
                     try {
-                        val tempFile = StorageManager.copyUriToTempFile(context, uri)
+                        val tempFile = withContext(Dispatchers.IO) {
+                            StorageManager.copyUriToTempFile(context, uri)
+                        }
                         if (tempFile == null) {
                             isConverting = false
                             Toast.makeText(context, "Failed to resolve file", Toast.LENGTH_SHORT).show()
@@ -294,76 +383,36 @@ fun ConversionFlowScreen(
                         }
                         
                         val targetSize = (selectedFileSize ?: 1024L) * quality
-                        
-                        // Parse optional crop/rotate/resize options
-                        val rWidth = resizeWidth.toIntOrNull()
-                        val rHeight = resizeHeight.toIntOrNull()
-                        
-                        val cX = cropX.toIntOrNull()
-                        val cY = cropY.toIntOrNull()
-                        val cW = cropW.toIntOrNull()
-                        val cH = cropH.toIntOrNull()
-                        
-                        val cRect = if (cX != null && cY != null && cW != null && cH != null) {
-                            android.graphics.Rect(cX, cY, cX + cW, cY + cH)
-                        } else {
-                            null
-                        }
+                        val rWidth = resizeWidth.toIntOrNull() ?: -1
+                        val rHeight = resizeHeight.toIntOrNull() ?: -1
+                        val cX = cropX.toIntOrNull() ?: -1
+                        val cY = cropY.toIntOrNull() ?: -1
+                        val cW = cropW.toIntOrNull() ?: -1
+                        val cH = cropH.toIntOrNull() ?: -1
 
-                        val options = ImageConversionOptions(
-                            format = targetFormat,
-                            quality = (quality * 100).toInt(),
-                            targetSizeBytes = targetSize.toLong(),
-                            exactWidth = rWidth,
-                            exactHeight = rHeight,
-                            rotationDegrees = rotationValue,
-                            cropRect = cRect
-                        )
-                        
-                        val converter = NativeImageConverter()
-                        val result = converter.convertImage(tempFile, options)
-                        
-                        isConverting = false
-                        if (result.isSuccess) {
-                            val outFile = result.getOrThrow()
-                            Toast.makeText(context, "Saved to ${outFile.absolutePath}", Toast.LENGTH_LONG).show()
-                            
-                            val historyDao = DatabaseProvider.getDatabase(context).historyDao()
-                            historyDao.insertConversion(
-                                ConversionHistoryEntity(
-                                    originalFileName = selectedFileName ?: tempFile.name,
-                                    outputFileName = outFile.name,
-                                    originalFormat = tempFile.extension.uppercase(),
-                                    outputFormat = targetFormat,
-                                    status = "SUCCESS",
-                                    timestamp = System.currentTimeMillis(),
-                                    originalSize = selectedFileSize ?: tempFile.length(),
-                                    outputSize = outFile.length(),
-                                    outputPath = outFile.absolutePath
+                        val workRequest = OneTimeWorkRequestBuilder<ImageBatchConversionWorker>()
+                            .setInputData(
+                                workDataOf(
+                                    "isBatch" to false,
+                                    "tempFilePath" to tempFile.absolutePath,
+                                    "originalFileName" to (selectedFileName ?: tempFile.name),
+                                    "originalFileSize" to (selectedFileSize ?: tempFile.length()),
+                                    "format" to targetFormat,
+                                    "quality" to (quality * 100).toInt(),
+                                    "targetSizeBytes" to targetSize.toLong(),
+                                    "exactWidth" to rWidth,
+                                    "exactHeight" to rHeight,
+                                    "rotationDegrees" to rotationValue,
+                                    "cropX" to cX,
+                                    "cropY" to cY,
+                                    "cropW" to cW,
+                                    "cropH" to cH
                                 )
                             )
-                            selectedUri = null
-                            selectedFileName = null
-                            selectedFileSize = null
-                        } else {
-                            val ex = result.exceptionOrNull()
-                            Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
-                            
-                            val historyDao = DatabaseProvider.getDatabase(context).historyDao()
-                            historyDao.insertConversion(
-                                ConversionHistoryEntity(
-                                    originalFileName = selectedFileName ?: tempFile.name,
-                                    outputFileName = "",
-                                    originalFormat = tempFile.extension.uppercase(),
-                                    outputFormat = targetFormat,
-                                    status = "FAILED",
-                                    timestamp = System.currentTimeMillis(),
-                                    originalSize = selectedFileSize ?: tempFile.length(),
-                                    outputSize = 0,
-                                    outputPath = ""
-                                )
-                            )
-                        }
+                            .build()
+                        
+                        WorkManager.getInstance(context).enqueue(workRequest)
+                        currentWorkId = workRequest.id
                     } catch (e: Exception) {
                         isConverting = false
                         Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()

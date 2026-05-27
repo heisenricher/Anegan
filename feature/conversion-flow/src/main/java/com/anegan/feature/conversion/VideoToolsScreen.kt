@@ -28,18 +28,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.conversion.FFmpegMediaConverter
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import com.anegan.core.conversion.StorageManager
-import com.anegan.core.database.DatabaseProvider
-import com.anegan.core.database.ConversionHistoryEntity
 import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.core.content.ContextCompat
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import com.anegan.feature.conversion.worker.MediaConversionWorker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoToolsScreen(
     onBack: () -> Unit,
+    presetParams: Map<String, String>? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -50,26 +62,89 @@ fun VideoToolsScreen(
     var selectedFileName by remember { mutableStateOf<String?>(null) }
     var selectedFileSize by remember { mutableStateOf<Long?>(null) }
 
-    var activeTab by remember { mutableStateOf("Trim") }
+    var activeTab by remember { mutableStateOf(presetParams?.get("tab") ?: "Trim") }
     var isProcessing by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
+    var currentWorkId by remember { mutableStateOf<UUID?>(null) }
+
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+        if (!isGranted) {
+            Toast.makeText(context, "Notification permission is required to show progress", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(currentWorkId) {
+        val id = currentWorkId ?: return@DisposableEffect onDispose {}
+        val liveData = WorkManager.getInstance(context).getWorkInfoByIdLiveData(id)
+        val observer = androidx.lifecycle.Observer<WorkInfo> { workInfo ->
+            if (workInfo != null) {
+                val progressVal = workInfo.progress.getInt("progress", -1)
+                if (progressVal >= 0) {
+                    progress = progressVal / 100f
+                }
+                
+                if (workInfo.state.isFinished) {
+                    isProcessing = false
+                    if (workInfo.state == WorkInfo.State.SUCCEEDED) {
+                        val outName = workInfo.outputData.getString("outputFileName") ?: "file"
+                        Toast.makeText(context, "Saved to $outName", Toast.LENGTH_LONG).show()
+                        selectedUri = null
+                        selectedFileName = null
+                        selectedFileSize = null
+                    } else {
+                        val err = workInfo.outputData.getString("error") ?: "Failed"
+                        Toast.makeText(context, "Failed: $err", Toast.LENGTH_LONG).show()
+                    }
+                    currentWorkId = null
+                }
+            }
+        }
+        liveData.observe(lifecycleOwner, observer)
+        onDispose {
+            liveData.removeObserver(observer)
+        }
+    }
+
 
     // Trim states
-    var trimStart by remember { mutableStateOf("00:00") }
-    var trimEnd by remember { mutableStateOf("00:10") }
+    var trimStart by remember { mutableStateOf(presetParams?.get("trimStart") ?: "00:00") }
+    var trimEnd by remember { mutableStateOf(presetParams?.get("trimEnd") ?: "00:10") }
 
     // Compress states
-    var crfValue by remember { mutableStateOf(28f) }
-    var selectedResolution by remember { mutableStateOf("Original") }
+    var crfValue by remember {
+        val crfVal = presetParams?.get("crf")?.toFloatOrNull() ?: 28f
+        mutableStateOf(crfVal)
+    }
+    var selectedResolution by remember { mutableStateOf(presetParams?.get("resolution") ?: "Original") }
 
     // Speed states
-    var speedFactor by remember { mutableStateOf(1.0f) }
+    var speedFactor by remember {
+        val spVal = presetParams?.get("speed")?.toFloatOrNull() ?: 1.0f
+        mutableStateOf(spVal)
+    }
 
     // GIF states
-    var gifStart by remember { mutableStateOf("0.0") }
-    var gifDuration by remember { mutableStateOf("5.0") }
-    var gifFps by remember { mutableStateOf("10") }
-    var gifWidth by remember { mutableStateOf("480") }
+    var gifStart by remember { mutableStateOf(presetParams?.get("gifStart") ?: "0.0") }
+    var gifDuration by remember { mutableStateOf(presetParams?.get("gifDuration") ?: "5.0") }
+    var gifFps by remember { mutableStateOf(presetParams?.get("gifFps") ?: "10") }
+    var gifWidth by remember { mutableStateOf(presetParams?.get("gifWidth") ?: "480") }
 
     val videoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -120,14 +195,19 @@ fun VideoToolsScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "← ",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 26.sp),
-                color = MidnightIndigo,
+            IconButton(
+                onClick = onBack,
                 modifier = Modifier
-                    .clickable { onBack() }
-                    .padding(end = 12.dp)
-            )
+                    .size(48.dp)
+                    .semantics { contentDescription = "Go back to dashboard" }
+            ) {
+                Text(
+                    text = "←",
+                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 26.sp),
+                    color = MidnightIndigo
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Video Tools",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 26.sp),
@@ -144,6 +224,7 @@ fun VideoToolsScreen(
                 .height(130.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surface)
+                .semantics { contentDescription = if (selectedFileName != null) "Selected video: $selectedFileName" else "Select a video file from device storage" }
                 .clickable { videoPickerLauncher.launch("video/*") },
             contentAlignment = Alignment.Center
         ) {
@@ -173,6 +254,7 @@ fun VideoToolsScreen(
                         .weight(1f)
                         .clip(RoundedCornerShape(20.dp))
                         .background(if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.surface)
+                        .semantics { contentDescription = "Switch to $tab mode" }
                         .clickable { activeTab = tab }
                         .padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center
@@ -240,7 +322,8 @@ fun VideoToolsScreen(
                             colors = SliderDefaults.colors(
                                 thumbColor = MidnightIndigo,
                                 activeTrackColor = MidnightIndigo
-                            )
+                            ),
+                            modifier = Modifier.semantics { contentDescription = "Video quality compression slider, active CRF value ${crfValue.toInt()} (lower is higher quality)" }
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -280,7 +363,8 @@ fun VideoToolsScreen(
                             colors = SliderDefaults.colors(
                                 thumbColor = MidnightIndigo,
                                 activeTrackColor = MidnightIndigo
-                            )
+                            ),
+                            modifier = Modifier.semantics { contentDescription = "Video speed factor slider, active speed is ${String.format("%.2f", speedFactor)} times" }
                         )
                     }
                 }
@@ -356,93 +440,86 @@ fun VideoToolsScreen(
                     return@Button
                 }
 
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    return@Button
+                }
+
+                // If doing Trim, validate time before launching background worker
+                if (activeTab == "Trim") {
+                    val start = parseTimeToSeconds(trimStart)
+                    val end = parseTimeToSeconds(trimEnd)
+                    if (start == null || end == null || start >= end) {
+                        Toast.makeText(context, "Invalid start or end time", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+                }
+
                 isProcessing = true
                 progress = 0f
 
                 coroutineScope.launch {
                     try {
-                        val tempFile = StorageManager.copyUriToTempFile(context, uri)
+                        val tempFile = withContext(Dispatchers.IO) {
+                            StorageManager.copyUriToTempFile(context, uri)
+                        }
                         if (tempFile == null) {
                             isProcessing = false
                             Toast.makeText(context, "Failed to resolve file", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
 
-                        val converter = FFmpegMediaConverter()
-                        val historyDao = DatabaseProvider.getDatabase(context).historyDao()
-
-                        val result = when (activeTab) {
-                            "Trim" -> {
-                                val start = parseTimeToSeconds(trimStart)
-                                val end = parseTimeToSeconds(trimEnd)
-                                if (start == null || end == null || start >= end) {
-                                    isProcessing = false
-                                    Toast.makeText(context, "Invalid start or end time", Toast.LENGTH_LONG).show()
-                                    return@launch
-                                }
-                                converter.trimVideo(tempFile, start, end) { progress = it }
-                            }
-                            "Compress" -> {
-                                val resParam = when (selectedResolution) {
-                                    "1080p" -> "1920:1080"
-                                    "720p" -> "1280:720"
-                                    "480p" -> "854:480"
-                                    else -> null
-                                }
-                                converter.compressVideo(tempFile, crfValue.toInt(), resParam) { progress = it }
-                            }
-                            "Speed" -> {
-                                converter.changeVideoSpeed(tempFile, speedFactor) { progress = it }
-                            }
-                            "To GIF" -> {
-                                val start = gifStart.toDoubleOrNull() ?: 0.0
-                                val duration = gifDuration.toDoubleOrNull() ?: 5.0
-                                val fps = gifFps.toIntOrNull() ?: 10
-                                val width = gifWidth.toIntOrNull() ?: 480
-                                converter.videoToGif(tempFile, start, duration, fps, width) { progress = it }
-                            }
-                            else -> Result.failure(Exception("Unknown tool tab"))
+                        val operation = when (activeTab) {
+                            "Trim" -> "TRIM_VIDEO"
+                            "Compress" -> "COMPRESS_VIDEO"
+                            "Speed" -> "SPEED_VIDEO"
+                            "To GIF" -> "VIDEO_TO_GIF"
+                            else -> throw Exception("Unknown active tab")
                         }
 
-                        isProcessing = false
-                        if (result.isSuccess) {
-                            val outFile = result.getOrThrow()
-                            Toast.makeText(context, "Success! Saved to ${outFile.absolutePath}", Toast.LENGTH_LONG).show()
-
-                            historyDao.insertConversion(
-                                ConversionHistoryEntity(
-                                    originalFileName = selectedFileName ?: tempFile.name,
-                                    outputFileName = outFile.name,
-                                    originalFormat = tempFile.extension.uppercase(),
-                                    outputFormat = if (activeTab == "To GIF") "GIF" else tempFile.extension.uppercase(),
-                                    status = "SUCCESS",
-                                    timestamp = System.currentTimeMillis(),
-                                    originalSize = selectedFileSize ?: tempFile.length(),
-                                    outputSize = outFile.length(),
-                                    outputPath = outFile.absolutePath
-                                )
-                            )
-                            selectedUri = null
-                            selectedFileName = null
-                            selectedFileSize = null
-                        } else {
-                            val ex = result.exceptionOrNull()
-                            Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
-
-                            historyDao.insertConversion(
-                                ConversionHistoryEntity(
-                                    originalFileName = selectedFileName ?: tempFile.name,
-                                    outputFileName = "",
-                                    originalFormat = tempFile.extension.uppercase(),
-                                    outputFormat = if (activeTab == "To GIF") "GIF" else tempFile.extension.uppercase(),
-                                    status = "FAILED",
-                                    timestamp = System.currentTimeMillis(),
-                                    originalSize = selectedFileSize ?: tempFile.length(),
-                                    outputSize = 0,
-                                    outputPath = ""
-                                )
-                            )
+                        val resParam = when (selectedResolution) {
+                            "1080p" -> "1920:1080"
+                            "720p" -> "1280:720"
+                            "480p" -> "854:480"
+                            else -> null
                         }
+
+                        val startSec = when (activeTab) {
+                            "Trim" -> parseTimeToSeconds(trimStart) ?: 0.0
+                            "To GIF" -> gifStart.toDoubleOrNull() ?: 0.0
+                            else -> 0.0
+                        }
+
+                        val endSec = when (activeTab) {
+                            "Trim" -> parseTimeToSeconds(trimEnd) ?: 0.0
+                            else -> 0.0
+                        }
+
+                        val duration = gifDuration.toDoubleOrNull() ?: 5.0
+                        val fps = gifFps.toIntOrNull() ?: 10
+                        val width = gifWidth.toIntOrNull() ?: 480
+
+                        val workRequest = OneTimeWorkRequestBuilder<MediaConversionWorker>()
+                            .setInputData(
+                                workDataOf(
+                                    "operation" to operation,
+                                    "tempFilePath" to tempFile.absolutePath,
+                                    "originalFileName" to (selectedFileName ?: tempFile.name),
+                                    "originalFileSize" to (selectedFileSize ?: tempFile.length()),
+                                    "startTime" to startSec,
+                                    "endTime" to endSec,
+                                    "crf" to crfValue.toInt(),
+                                    "resolution" to resParam,
+                                    "speedFactor" to speedFactor,
+                                    "duration" to duration,
+                                    "fps" to fps,
+                                    "width" to width
+                                )
+                            )
+                            .build()
+
+                        WorkManager.getInstance(context).enqueue(workRequest)
+                        currentWorkId = workRequest.id
                     } catch (e: Exception) {
                         isProcessing = false
                         Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()

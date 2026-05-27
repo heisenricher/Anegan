@@ -11,3 +11,8 @@ local.properties
 
 # Module specific builds
 **/build/
+
+# Signing credentials
+keystore.properties
+*.jks
+*.keystore

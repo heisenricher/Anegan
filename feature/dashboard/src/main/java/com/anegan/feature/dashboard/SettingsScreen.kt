@@ -240,6 +240,28 @@ fun SettingsScreen(
                         Text("Clear Cache")
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Onboarding Tutorial", fontSize = 14.sp, color = MidnightIndigo)
+                        Text("Replay the welcome tour", fontSize = 12.sp, color = Color.Gray)
+                    }
+                    Button(
+                        onClick = {
+                            prefs.edit().putBoolean("pref_show_onboarding", true).apply()
+                            Toast.makeText(context, "Tutorial reset! Reopen the app or go back to replay.", Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
+                    ) {
+                        Text("Replay Tour")
+                    }
+                }
             }
         }
 
