@@ -22,7 +22,7 @@ data class VideoConversionOptions(
     val outputFormat: String, // "mp4", "mkv", "avi"
     val targetResolution: String? = null, // "1920x1080", "1280x720"
     val targetBitrate: String? = null, // "2M", "5M"
-    val preset: String = "fast" // "ultrafast", "fast", "medium", "slow"
+    val preset: String = "fast"
 )
 
 data class AudioExtractionOptions(
@@ -41,7 +41,6 @@ class FFmpegMediaConverter : MediaConverter {
         try {
             val outputFile = File(StorageManager.getAneganOutputDirectory("Video"), "${input.nameWithoutExtension}_converted.${options.outputFormat.lowercase()}")
             
-            // Get input file duration using ffprobe
             val mediaInformation = FFprobeKit.getMediaInformation(input.absolutePath)
             val durationString = mediaInformation?.mediaInformation?.duration
             val durationSeconds = durationString?.toDoubleOrNull() ?: 1.0
@@ -80,7 +79,6 @@ class FFmpegMediaConverter : MediaConverter {
                         continuation.resume(Result.failure(Exception("FFmpeg execution failed with code $returnCode")))
                     }
                 }, { log ->
-                    // Logs can be handled if needed
                 }, { statistics ->
                     val timeInMillis = statistics.time
                     val progress = (timeInMillis / 1000.0) / durationSeconds
@@ -139,7 +137,6 @@ class FFmpegMediaConverter : MediaConverter {
                         continuation.resume(Result.failure(Exception("FFmpeg extraction failed with code $returnCode")))
                     }
                 }, { log ->
-                    // Logs can be handled if needed
                 }, { statistics ->
                     val timeInMillis = statistics.time
                     val progress = (timeInMillis / 1000.0) / durationSeconds
@@ -182,7 +179,13 @@ class FFmpegMediaConverter : MediaConverter {
         }
     }
 
-    suspend fun compressVideo(input: File, crf: Int = 28, resolution: String? = null, onProgress: (Float) -> Unit): Result<File> = withContext(Dispatchers.IO) {
+    suspend fun compressVideo(
+        input: File,
+        crf: Int = 28,
+        resolution: String? = null,
+        targetSizeMb: Double? = null,
+        onProgress: (Float) -> Unit
+    ): Result<File> = withContext(Dispatchers.IO) {
         try {
             val outputFile = File(StorageManager.getAneganOutputDirectory("Video"), "${input.nameWithoutExtension}_compressed.mp4")
 
@@ -190,7 +193,13 @@ class FFmpegMediaConverter : MediaConverter {
             val durationSeconds = mediaInformation?.mediaInformation?.duration?.toDoubleOrNull() ?: 1.0
 
             val vf = if (resolution != null) "-vf scale=$resolution" else ""
-            val cmd = "-y -i \"${input.absolutePath}\" -c:v libx264 -crf $crf $vf -preset fast -c:a aac -b:a 128k \"${outputFile.absolutePath}\""
+            val cmd = if (targetSizeMb != null && targetSizeMb > 0.0) {
+                val totalBitrateBps = (targetSizeMb * 8.0 * 1024.0 * 1024.0) / durationSeconds
+                val videoBitrateKbps = ((totalBitrateBps / 1024.0) - 128.0).toInt().coerceIn(100, 20000)
+                "-y -i \"${input.absolutePath}\" -c:v libx264 -b:v ${videoBitrateKbps}k -maxrate ${videoBitrateKbps * 2}k -bufsize ${videoBitrateKbps * 4}k $vf -preset fast -c:a aac -b:a 128k \"${outputFile.absolutePath}\""
+            } else {
+                "-y -i \"${input.absolutePath}\" -c:v libx264 -crf $crf $vf -preset fast -c:a aac -b:a 128k \"${outputFile.absolutePath}\""
+            }
 
             suspendCancellableCoroutine { continuation ->
                 val session = FFmpegKit.executeAsync(cmd, { activeSession ->
@@ -247,7 +256,6 @@ class FFmpegMediaConverter : MediaConverter {
             val durationSeconds = mediaInformation?.mediaInformation?.duration?.toDoubleOrNull() ?: 1.0
 
             val pts = 1.0 / speedFactor
-            // atempo only supports 0.5-2.0 range, chain for wider ranges
             val atempoFilters = buildList {
                 var remaining = speedFactor.toDouble()
                 while (remaining > 2.0) { add("atempo=2.0"); remaining /= 2.0 }

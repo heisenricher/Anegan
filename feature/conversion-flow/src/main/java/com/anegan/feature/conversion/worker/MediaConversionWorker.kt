@@ -89,7 +89,9 @@ class MediaConversionWorker(
                     outputFormat = "MP4"
                     val crf = inputData.getInt("crf", 28)
                     val resolution = inputData.getString("resolution")
-                    converter.compressVideo(tempFile, crf, resolution) { progress ->
+                    val targetSizeMb = inputData.getDouble("targetSizeMb", 0.0)
+                    val targetSizeParam = if (targetSizeMb > 0.0) targetSizeMb else null
+                    converter.compressVideo(tempFile, crf, resolution, targetSizeParam) { progress ->
                         val percent = (progress * 100).toInt()
                         setProgressAsync(workDataOf("progress" to percent))
                         notificationManager.notify(notificationId, createNotification(title, percent))

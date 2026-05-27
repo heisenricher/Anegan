@@ -129,25 +129,28 @@ val quickPresets = listOf(
 )
 
 val categories = listOf(
-    Category("Documents", "Merge, text-to-pdf, unlock"),
-    Category("PDF Tools", "Split, compress, encrypt, images"),
-    Category("Images", "JPG, PNG, WEBP, quality"),
-    Category("Batch Image", "Process multiple images"),
-    Category("Video", "Convert MP4, MKV, AVI"),
-    Category("Video Tools", "Trim, compress, speed, GIF"),
-    Category("Audio", "Convert MP3, M4A, FLAC"),
-    Category("Audio Tools", "Cut audio, ringtones"),
-    Category("OCR / Extract Text", "Image to Text (Offline)"),
-    Category("EXIF Metadata", "View & strip photo metadata"),
-    Category("Developer Tools", "Hash, Base64, QR codes"),
+    Category("Notes",             "Quick notes, reminders, checklists"),
+    Category("Vault",             "Encrypted secure document storage"),
+    Category("File Manager",      "Browse, zip, manage your files"),
+    Category("Documents",         "Merge, text-to-pdf, unlock"),
+    Category("PDF Tools",         "Split, compress, encrypt, images"),
+    Category("Images",            "JPG, PNG, WEBP, quality"),
+    Category("Batch Image",       "Process multiple images"),
+    Category("Video",             "Convert MP4, MKV, AVI"),
+    Category("Video Tools",       "Trim, compress, speed, GIF"),
+    Category("Audio",             "Convert MP3, M4A, FLAC"),
+    Category("Audio Tools",       "Cut audio, ringtones"),
+    Category("OCR / Extract Text","Image to Text (Offline)"),
+    Category("EXIF Metadata",     "View & strip photo metadata"),
+    Category("Developer Tools",   "Hash, Base64, QR codes"),
     Category("AI Background Remover", "Isolate subjects offline"),
-    Category("Image Watermark", "Add text watermarks"),
-    Category("PDF Organizer", "Reorder or delete PDF pages"),
-    Category("Color Picker", "Analyze and save palettes"),
-    Category("Unit Converter", "Offline length, mass, data size conversion"),
-    Category("History", "Recent Conversions"),
-    Category("Settings", "App Config"),
-    Category("Feedback", "Report bugs to GitHub")
+    Category("Image Watermark",   "Add text watermarks"),
+    Category("PDF Reader & Editor", "Read, draw, sign and edit pages"),
+    Category("Color Picker",      "Analyze and save palettes"),
+    Category("Unit Converter",    "Offline length, mass, data size conversion"),
+    Category("History",           "Recent Conversions"),
+    Category("Settings",          "App Config"),
+    Category("Feedback",          "Report bugs to GitHub")
 )
 
 @Composable
@@ -179,10 +182,40 @@ fun DashboardScreen(
                     style = MaterialTheme.typography.displayLarge.copy(fontSize = 32.sp)
                 )
                 Text(
-                    text = "What would you like to convert?",
+                    text = "Your offline utility suite — v2.5",
                     style = MaterialTheme.typography.bodyLarge,
                     color = Color.Gray
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1B5E20).copy(alpha = 0.15f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "🛡️ 100% Offline",
+                            fontSize = 10.sp,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF0D47A1).copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "🔒 No Account",
+                            fontSize = 10.sp,
+                            color = Color(0xFF1565C0),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
             }
         }
 

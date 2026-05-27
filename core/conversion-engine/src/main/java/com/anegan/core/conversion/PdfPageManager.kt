@@ -94,4 +94,69 @@ class PdfPageManager {
             Result.failure(e)
         }
     }
+
+    suspend fun rotatePage(inputFile: File, pageIndex: Int, rotationDegrees: Int): Result<File> = withContext(Dispatchers.IO) {
+        try {
+            val document = PDDocument.load(inputFile)
+            if (pageIndex < 0 || pageIndex >= document.numberOfPages) {
+                document.close()
+                return@withContext Result.failure(IllegalArgumentException("Invalid page index: $pageIndex"))
+            }
+            val page = document.getPage(pageIndex)
+            page.rotation = (page.rotation + rotationDegrees) % 360
+
+            val outputDir = StorageManager.getAneganOutputDirectory("Documents")
+            val outputFile = File(outputDir, "${inputFile.nameWithoutExtension}_rotated.pdf")
+            val fos = FileOutputStream(outputFile)
+            document.save(fos)
+            fos.close()
+            document.close()
+
+            Result.success(outputFile)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun savePageAnnotation(inputFile: File, pageIndex: Int, annotationBitmap: Bitmap): Result<File> = withContext(Dispatchers.IO) {
+        try {
+            val document = PDDocument.load(inputFile)
+            if (pageIndex < 0 || pageIndex >= document.numberOfPages) {
+                document.close()
+                return@withContext Result.failure(IllegalArgumentException("Invalid page index: $pageIndex"))
+            }
+            val page = document.getPage(pageIndex)
+
+            val bos = java.io.ByteArrayOutputStream()
+            annotationBitmap.compress(Bitmap.CompressFormat.PNG, 100, bos)
+            val pngBytes = bos.toByteArray()
+
+            val ximage = com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject.createFromByteArray(
+                document,
+                pngBytes,
+                "annotation_${System.currentTimeMillis()}"
+            )
+
+            val contentStream = com.tom_roush.pdfbox.pdmodel.PDPageContentStream(
+                document,
+                page,
+                com.tom_roush.pdfbox.pdmodel.PDPageContentStream.AppendMode.APPEND,
+                true,
+                true
+            )
+            contentStream.drawImage(ximage, 0f, 0f, page.mediaBox.width, page.mediaBox.height)
+            contentStream.close()
+
+            val outputDir = StorageManager.getAneganOutputDirectory("Documents")
+            val outputFile = File(outputDir, "${inputFile.nameWithoutExtension}_signed.pdf")
+            val fos = FileOutputStream(outputFile)
+            document.save(fos)
+            fos.close()
+            document.close()
+
+            Result.success(outputFile)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2026 Mahilan (heisenricher). All rights reserved.
- * 
+ *
  * This source code is licensed under the custom Anegan Attribution License.
  * Any person or entity using, modifying, or building upon this code must
  * prominently attribute the original creator Mahilan (heisenricher).
@@ -38,10 +38,13 @@ import com.anegan.feature.conversion.UnitConverterScreen
 import com.anegan.feature.conversion.BackgroundRemoverScreen
 import com.anegan.feature.conversion.ImageWatermarkScreen
 import com.anegan.feature.conversion.PdfPageOrganizerScreen
+import com.anegan.feature.conversion.PdfReaderEditorScreen
 import com.anegan.feature.history.HistoryScreen
 import com.anegan.feature.history.BiometricHelper
-import com.anegan.feature.ai.AskAneganScreen
-import com.anegan.feature.ai.ModelManagerScreen
+import com.anegan.feature.notes.NoteListScreen
+import com.anegan.feature.notes.NoteEditorScreen
+import com.anegan.feature.vault.VaultScreen
+import com.anegan.feature.filemanager.FileManagerScreen
 
 class MainActivity : FragmentActivity() {
     private val intentFlow = kotlinx.coroutines.flow.MutableSharedFlow<android.content.Intent>(extraBufferCapacity = 1)
@@ -67,14 +70,16 @@ class MainActivity : FragmentActivity() {
             var isHistoryAuthenticated by remember { mutableStateOf(false) }
             var showUpdateDialog by remember { mutableStateOf(false) }
             var updateUrl by remember { mutableStateOf("https://github.com/heisenricher/Anegan/releases/latest") }
-            
+            // Notes sub-navigation: null = list, non-null = editor (null string = new note, noteId = existing)
+            var selectedNoteId by remember { mutableStateOf<String?>(null) }
+            var openNoteEditor by remember { mutableStateOf(false) }
+
             val currentIntent by intentFlow.collectAsState(initial = intent)
-            
+
             LaunchedEffect(currentIntent) {
                 val intentVal = currentIntent ?: return@LaunchedEffect
-                // Silent credential check and logging
-                android.util.Log.d("AneganInfo", "Anegan app built by Mahilan (heisenricher). All rights reserved. Copyright (c) 2026.")
-                
+                android.util.Log.d("AneganInfo", "Anegan v2.5 built by Mahilan (heisenricher). All rights reserved. Copyright (c) 2026.")
+
                 val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
                 val releaseInfo = UpdateChecker.getLatestReleaseInfo()
                 if (releaseInfo != null && UpdateChecker.isUpdateAvailable(currentVersion, releaseInfo.version)) {
@@ -85,59 +90,54 @@ class MainActivity : FragmentActivity() {
                 // Handle launcher shortcuts and share intents
                 val act = intentVal.action
                 val typ = intentVal.type
-                if (act == "com.anegan.action.SHORTCUT_IMAGES") {
-                    selectedCategory = "Images"
-                } else if (act == "com.anegan.action.SHORTCUT_PDF") {
-                    selectedCategory = "PDF Tools"
-                } else if (act == "com.anegan.action.SHORTCUT_ASK") {
-                    selectedCategory = "Ask Anegan"
-                } else if (act == "com.anegan.action.SHORTCUT_HISTORY") {
-                    selectedCategory = "History"
-                } else if (act == android.content.Intent.ACTION_SEND && typ != null) {
-                    val streamUri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                        intentVal.getParcelableExtra(android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)
-                    } else {
-                        @Suppress("DEPRECATION") intentVal.getParcelableExtra(android.content.Intent.EXTRA_STREAM)
-                    }
-                    if (streamUri != null) {
-                        if (typ.startsWith("image/")) {
-                            selectedCategory = "Images"
-                        } else if (typ.startsWith("video/")) {
-                            selectedCategory = "Video Tools"
-                        } else if (typ.startsWith("audio/")) {
-                            selectedCategory = "Audio Tools"
-                        } else if (typ == "application/pdf") {
-                            selectedCategory = "PDF Tools"
+                when {
+                    act == "com.anegan.action.SHORTCUT_IMAGES"  -> selectedCategory = "Images"
+                    act == "com.anegan.action.SHORTCUT_PDF"     -> selectedCategory = "PDF Tools"
+                    act == "com.anegan.action.SHORTCUT_HISTORY" -> selectedCategory = "History"
+                    act == "com.anegan.action.SHORTCUT_NOTES"   -> selectedCategory = "Notes"
+                    act == android.content.Intent.ACTION_SEND && typ != null -> {
+                        val streamUri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            intentVal.getParcelableExtra(android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)
+                        } else {
+                            @Suppress("DEPRECATION") intentVal.getParcelableExtra(android.content.Intent.EXTRA_STREAM)
+                        }
+                        if (streamUri != null) {
+                            selectedCategory = when {
+                                typ.startsWith("image/")  -> "Images"
+                                typ.startsWith("video/")  -> "Video Tools"
+                                typ.startsWith("audio/")  -> "Audio Tools"
+                                typ == "application/pdf"  -> "PDF Tools"
+                                else                      -> null
+                            }
                         }
                     }
-                } else if (act == android.content.Intent.ACTION_SEND_MULTIPLE && typ != null) {
-                    val streamUris = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                        intentVal.getParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)
-                    } else {
-                        @Suppress("DEPRECATION") intentVal.getParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM)
-                    }
-                    if (!streamUris.isNullOrEmpty()) {
-                        if (typ.startsWith("image/")) {
+                    act == android.content.Intent.ACTION_SEND_MULTIPLE && typ != null -> {
+                        val streamUris = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            intentVal.getParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, android.net.Uri::class.java)
+                        } else {
+                            @Suppress("DEPRECATION") intentVal.getParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM)
+                        }
+                        if (!streamUris.isNullOrEmpty() && typ.startsWith("image/")) {
                             selectedCategory = "Batch Image"
                         }
                     }
                 }
             }
-            
+
             val prefs = remember { getSharedPreferences("anegan_settings", MODE_PRIVATE) }
             var showOnboarding by remember {
                 mutableStateOf(prefs.getBoolean("pref_show_onboarding", true))
             }
             val themeSelection = remember(prefs) { prefs.getString("pref_theme_mode", "System") ?: "System" }
             val dynamicThemePref = remember(prefs) { prefs.getBoolean("pref_dynamic_color", true) }
-            
+
             val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
             val darkTheme = when (themeSelection) {
-                "Dark" -> true
+                "Dark"  -> true
                 "Light" -> false
-                else -> isSystemDark
+                else    -> isSystemDark
             }
-            
+
             AneganTheme(
                 darkTheme = darkTheme,
                 dynamicColor = dynamicThemePref
@@ -167,9 +167,7 @@ class MainActivity : FragmentActivity() {
                                         )
                                         startActivity(intent)
                                         showUpdateDialog = false
-                                    }) {
-                                        androidx.compose.material3.Text("Update")
-                                    }
+                                    }) { androidx.compose.material3.Text("Update") }
                                 },
                                 dismissButton = {
                                     androidx.compose.material3.TextButton(onClick = { showUpdateDialog = false }) {
@@ -180,131 +178,105 @@ class MainActivity : FragmentActivity() {
                         }
 
                         if (selectedCategory == null) {
-                        DashboardScreen(
-                            onCategorySelected = { category -> 
-                                if (category == "Feedback") {
-                                    selectedCategory = "Feedback"
-                                } else if (category == "History") {
-                                    BiometricHelper.authenticate(
-                                        activity = this@MainActivity,
-                                        onSuccess = {
-                                            isHistoryAuthenticated = true
-                                            selectedCategory = "History"
-                                        },
-                                        onError = { errorMsg ->
-                                            Toast.makeText(this@MainActivity, "Access Denied: $errorMsg", Toast.LENGTH_SHORT).show()
-                                        }
-                                    )
-                                } else {
+                            DashboardScreen(
+                                onCategorySelected = { category ->
+                                    when (category) {
+                                        "Feedback" -> selectedCategory = "Feedback"
+                                        "History"  -> BiometricHelper.authenticate(
+                                            activity = this@MainActivity,
+                                            onSuccess = {
+                                                isHistoryAuthenticated = true
+                                                selectedCategory = "History"
+                                            },
+                                            onError = { errorMsg ->
+                                                Toast.makeText(this@MainActivity, "Access Denied: $errorMsg", Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                        else -> selectedCategory = category
+                                    }
+                                },
+                                onPresetSelected = { category, params ->
+                                    presetParams = params
                                     selectedCategory = category
                                 }
-                            },
-                            onPresetSelected = { category, params ->
-                                presetParams = params
-                                selectedCategory = category
-                            }
-                        )
-                    } else {
-                        BackHandler {
-                            selectedCategory = null
-                            presetParams = null
-                            isHistoryAuthenticated = false
-                        }
-                        if (selectedCategory == "History" && isHistoryAuthenticated) {
-                            HistoryScreen(onBack = { 
-                                selectedCategory = null 
-                                presetParams = null
-                                isHistoryAuthenticated = false
-                            })
-                        } else if (selectedCategory == "Feedback") {
-                            com.anegan.feature.dashboard.FeedbackScreen()
-                        } else if (selectedCategory == "Documents") {
-                            DocumentConversionScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "PDF Tools") {
-                            PdfToolsScreen(
-                                presetParams = presetParams,
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Batch Image") {
-                            BatchConversionScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Video Tools") {
-                            VideoToolsScreen(
-                                presetParams = presetParams,
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Audio Tools") {
-                            AudioToolsScreen(
-                                presetParams = presetParams,
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "OCR / Extract Text") {
-                            OcrScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "EXIF Metadata") {
-                            ExifScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Developer Tools") {
-                            DevToolsScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Color Picker") {
-                            ColorPickerScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Unit Converter") {
-                            UnitConverterScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "AI Background Remover") {
-                            BackgroundRemoverScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Image Watermark") {
-                            ImageWatermarkScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "PDF Organizer") {
-                            PdfPageOrganizerScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Settings") {
-                            SettingsScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Ask Anegan") {
-                            AskAneganScreen(
-                                onBack = { selectedCategory = null; presetParams = null },
-                                onNavigateToTool = { route -> 
-                                    selectedCategory = route
-                                    presetParams = null
-                                }
-                            )
-                        } else if (selectedCategory == "AI Model Manager") {
-                            ModelManagerScreen(
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
-                        } else if (selectedCategory == "Video" || selectedCategory == "Audio") {
-                            MediaConversionScreen(
-                                categoryName = selectedCategory!!,
-                                onBack = { selectedCategory = null; presetParams = null }
                             )
                         } else {
-                            ConversionFlowScreen(
-                                categoryName = selectedCategory!!,
-                                presetParams = if (selectedCategory == "Images") presetParams else null,
-                                onBack = { selectedCategory = null; presetParams = null }
-                            )
+                            BackHandler {
+                                selectedCategory = null
+                                presetParams = null
+                                isHistoryAuthenticated = false
+                            }
+                            when {
+                                selectedCategory == "History" && isHistoryAuthenticated ->
+                                    HistoryScreen(onBack = {
+                                        selectedCategory = null; presetParams = null; isHistoryAuthenticated = false
+                                    })
+                                selectedCategory == "Feedback" ->
+                                    com.anegan.feature.dashboard.FeedbackScreen()
+                                selectedCategory == "Documents" ->
+                                    DocumentConversionScreen(onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "PDF Tools" ->
+                                    PdfToolsScreen(presetParams = presetParams, onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "Batch Image" ->
+                                    BatchConversionScreen(onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "Video Tools" ->
+                                    VideoToolsScreen(presetParams = presetParams, onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "Audio Tools" ->
+                                    AudioToolsScreen(presetParams = presetParams, onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "OCR / Extract Text" ->
+                                    OcrScreen(onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "EXIF Metadata" ->
+                                    ExifScreen(onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "Developer Tools" ->
+                                    DevToolsScreen(onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "Color Picker" ->
+                                    ColorPickerScreen(onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "Unit Converter" ->
+                                    UnitConverterScreen(onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "AI Background Remover" ->
+                                    BackgroundRemoverScreen(onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "Image Watermark" ->
+                                    ImageWatermarkScreen(onBack = { selectedCategory = null; presetParams = null })
+                                 selectedCategory == "PDF Organizer" || selectedCategory == "PDF Reader & Editor" ->
+                                     PdfReaderEditorScreen(onBack = { selectedCategory = null; presetParams = null })
+                                selectedCategory == "Settings" ->
+                                    SettingsScreen(onBack = { selectedCategory = null; presetParams = null })
+
+                                // ── V2.5 NEW SCREENS ──────────────────────────────────────────
+                                selectedCategory == "Notes" && openNoteEditor ->
+                                    NoteEditorScreen(
+                                        noteId = selectedNoteId,
+                                        onBack = { openNoteEditor = false; selectedNoteId = null }
+                                    )
+                                selectedCategory == "Notes" ->
+                                    NoteListScreen(
+                                        onBack = { selectedCategory = null },
+                                        onOpenNote = { noteId ->
+                                            selectedNoteId = noteId
+                                            openNoteEditor = true
+                                        }
+                                    )
+                                selectedCategory == "Vault" ->
+                                    VaultScreen(onBack = { selectedCategory = null })
+                                selectedCategory == "File Manager" ->
+                                    FileManagerScreen(onBack = { selectedCategory = null })
+
+                                selectedCategory == "Video" || selectedCategory == "Audio" ->
+                                    MediaConversionScreen(
+                                        categoryName = selectedCategory!!,
+                                        onBack = { selectedCategory = null; presetParams = null }
+                                    )
+                                else ->
+                                    ConversionFlowScreen(
+                                        categoryName = selectedCategory!!,
+                                        presetParams = if (selectedCategory == "Images") presetParams else null,
+                                        onBack = { selectedCategory = null; presetParams = null }
+                                    )
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
 }

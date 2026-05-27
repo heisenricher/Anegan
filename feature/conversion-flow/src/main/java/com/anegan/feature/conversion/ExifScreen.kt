@@ -13,7 +13,9 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -36,9 +38,7 @@ import com.anegan.core.database.ConversionHistoryEntity
 import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
 import kotlinx.coroutines.launch
-import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExifScreen(
     onBack: () -> Unit,
@@ -71,7 +71,6 @@ fun ExifScreen(
             }
             exifTags = null
             
-            // Read EXIF tags automatically when file is selected
             isProcessing = true
             coroutineScope.launch {
                 try {
@@ -83,9 +82,10 @@ fun ExifScreen(
                         } else {
                             Toast.makeText(context, "No EXIF metadata found", Toast.LENGTH_SHORT).show()
                         }
+                        tempFile.delete()
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(context, "Error reading metadata: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                 } finally {
                     isProcessing = false
                 }
@@ -100,21 +100,24 @@ fun ExifScreen(
             .padding(24.dp)
             .verticalScroll(scrollState)
     ) {
-        // Header
+        // Sleek Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "← ",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo,
+            IconButton(
+                onClick = onBack,
                 modifier = Modifier
-                    .clickable { onBack() }
-                    .padding(end = 12.dp)
-            )
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+            ) {
+                Text("←", fontSize = 20.sp, color = MidnightIndigo, fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.width(16.dp))
             Text(
-                text = "EXIF Metadata Viewer",
+                text = "EXIF Metadata",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
                 color = MidnightIndigo
             )
@@ -122,33 +125,43 @@ fun ExifScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // File Picker Box
-        Box(
+        // File Selector Card
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(130.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surface)
                 .clickable { imagePickerLauncher.launch("image/*") },
-            contentAlignment = Alignment.Center
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
         ) {
-            if (selectedFileName != null) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
-                    Text(selectedFileName!!, color = MidnightIndigo, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    val sizeMb = (selectedFileSize ?: 0L) / (1024f * 1024f)
-                    Text(String.format("%.2f MB", sizeMb), color = Color.Gray, fontSize = 13.sp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (selectedFileName != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🖼️ Image Selected", fontWeight = FontWeight.Bold, color = MidnightIndigo, fontSize = 15.sp)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(selectedFileName!!, color = Color.Gray, fontSize = 13.sp)
+                        val sizeMb = (selectedFileSize ?: 0L) / (1024f * 1024f)
+                        Text(String.format("%.2f MB", sizeMb), color = MidnightIndigo, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    }
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📷", fontSize = 28.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Tap to Select Image", color = MidnightIndigo, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text("Read details like camera model, date, location", color = Color.Gray, fontSize = 11.sp)
+                    }
                 }
-            } else {
-                Text("Tap to Select Image", color = MidnightIndigo, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             }
         }
 
         if (isProcessing) {
             Spacer(modifier = Modifier.height(24.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = MidnightIndigo)
             }
         }
@@ -156,12 +169,12 @@ fun ExifScreen(
         exifTags?.let { tags ->
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Slate Card for EXIF Metadata
+            // Sleek EXIF Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(24.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
@@ -176,30 +189,29 @@ fun ExifScreen(
                         Text(
                             text = "No metadata tags found in this image.",
                             color = Color.Gray,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
                     } else {
                         tags.forEach { (label, value) ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
+                                    .padding(vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
                                     text = label,
                                     color = Color.Gray,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium
+                                    fontSize = 13.sp
                                 )
                                 Text(
                                     text = value,
                                     color = MidnightIndigo,
-                                    fontSize = 14.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
-                            Divider(color = Color(0xFFF1F5F9))
+                            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
                         }
                     }
                 }
@@ -208,17 +220,11 @@ fun ExifScreen(
             if (tags.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Action Button: Strip Metadata
                 Button(
                     onClick = {
                         val uri = selectedUri
-                        if (uri == null) {
-                            Toast.makeText(context, "Please select an image first", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-
+                        if (uri == null) return@Button
                         isProcessing = true
-
                         coroutineScope.launch {
                             try {
                                 val tempFile = StorageManager.copyUriToTempFile(context, uri)
@@ -227,13 +233,11 @@ fun ExifScreen(
                                     Toast.makeText(context, "Failed to copy file", Toast.LENGTH_SHORT).show()
                                     return@launch
                                 }
-
                                 val result = ExifManager().stripExifMetadata(tempFile)
                                 isProcessing = false
-
                                 if (result.isSuccess) {
                                     val strippedFile = result.getOrThrow()
-                                    Toast.makeText(context, "EXIF Metadata Stripped Successfully! Saved to ${strippedFile.name}", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "EXIF Metadata Stripped Successfully!", Toast.LENGTH_LONG).show()
                                     
                                     val historyDao = DatabaseProvider.getDatabase(context).historyDao()
                                     historyDao.insertConversion(
@@ -249,12 +253,15 @@ fun ExifScreen(
                                             outputPath = strippedFile.absolutePath
                                         )
                                     )
-                                    // Refresh metadata view as it's now stripped
                                     exifTags = emptyMap()
+                                    selectedUri = null
+                                    selectedFileName = null
+                                    selectedFileSize = null
                                 } else {
                                     val ex = result.exceptionOrNull()
-                                    Toast.makeText(context, "Failed to strip metadata: ${ex?.message}", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Failed: ${ex?.message}", Toast.LENGTH_LONG).show()
                                 }
+                                tempFile.delete()
                             } catch (e: Exception) {
                                 isProcessing = false
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
@@ -265,6 +272,7 @@ fun ExifScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     enabled = !isProcessing,
+                    shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
                 ) {
                     Text("Strip Metadata & Save", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

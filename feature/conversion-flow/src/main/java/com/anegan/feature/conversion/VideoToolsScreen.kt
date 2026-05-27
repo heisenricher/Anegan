@@ -23,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -133,6 +134,8 @@ fun VideoToolsScreen(
         mutableStateOf(crfVal)
     }
     var selectedResolution by remember { mutableStateOf(presetParams?.get("resolution") ?: "Original") }
+    var compressWithTargetSize by remember { mutableStateOf(false) }
+    var targetVideoSizeMb by remember { mutableStateOf("") }
 
     // Speed states
     var speedFactor by remember {
@@ -314,17 +317,66 @@ fun VideoToolsScreen(
                         Text("Compression Settings", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Text("Quality (CRF): ${crfValue.toInt()} (Lower is better quality)", fontSize = 14.sp, color = MidnightIndigo)
-                        Slider(
-                            value = crfValue,
-                            onValueChange = { crfValue = it },
-                            valueRange = 18f..35f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = MidnightIndigo,
-                                activeTrackColor = MidnightIndigo
-                            ),
-                            modifier = Modifier.semantics { contentDescription = "Video quality compression slider, active CRF value ${crfValue.toInt()} (lower is higher quality)" }
-                        )
+                        // Apple-style Mode Segmented Selector
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.background)
+                                .padding(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (!compressWithTargetSize) MaterialTheme.colorScheme.surface else Color.Transparent)
+                                    .clickable { compressWithTargetSize = false }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Quality Mode", fontSize = 12.sp, color = MidnightIndigo, fontWeight = FontWeight.Medium)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (compressWithTargetSize) MaterialTheme.colorScheme.surface else Color.Transparent)
+                                    .clickable { compressWithTargetSize = true }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Target Size Mode", fontSize = 12.sp, color = MidnightIndigo, fontWeight = FontWeight.Medium)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        if (!compressWithTargetSize) {
+                            Text("Quality (CRF): ${crfValue.toInt()} (Lower is better quality)", fontSize = 14.sp, color = MidnightIndigo)
+                            Slider(
+                                value = crfValue,
+                                onValueChange = { crfValue = it },
+                                valueRange = 18f..35f,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MidnightIndigo,
+                                    activeTrackColor = MidnightIndigo
+                                ),
+                                modifier = Modifier.semantics { contentDescription = "Video quality compression slider, active CRF value ${crfValue.toInt()} (lower is higher quality)" }
+                            )
+                        } else {
+                            OutlinedTextField(
+                                value = targetVideoSizeMb,
+                                onValueChange = { targetVideoSizeMb = it },
+                                label = { Text("Target Output Size (MB)") },
+                                placeholder = { Text("e.g. 5.50") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MidnightIndigo,
+                                    focusedLabelColor = MidnightIndigo
+                                )
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -499,6 +551,7 @@ fun VideoToolsScreen(
                         val fps = gifFps.toIntOrNull() ?: 10
                         val width = gifWidth.toIntOrNull() ?: 480
 
+                        val targetSize = if (compressWithTargetSize) (targetVideoSizeMb.toDoubleOrNull() ?: 0.0) else 0.0
                         val workRequest = OneTimeWorkRequestBuilder<MediaConversionWorker>()
                             .setInputData(
                                 workDataOf(
@@ -513,7 +566,8 @@ fun VideoToolsScreen(
                                     "speedFactor" to speedFactor,
                                     "duration" to duration,
                                     "fps" to fps,
-                                    "width" to width
+                                    "width" to width,
+                                    "targetSizeMb" to targetSize
                                 )
                             )
                             .build()

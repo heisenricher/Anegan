@@ -21,7 +21,7 @@ object DatabaseProvider {
                 context.applicationContext,
                 AneganDatabase::class.java,
                 "anegan_database"
-            ).build()
+            ).fallbackToDestructiveMigration().build()
             instance = db
             db
         }

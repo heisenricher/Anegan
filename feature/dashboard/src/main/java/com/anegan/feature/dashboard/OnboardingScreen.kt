@@ -56,18 +56,13 @@ fun OnboardingScreen(
         ),
         OnboardingSlide(
             title = "100% Local & Private 🔒",
-            description = "Your files never leave your device. All conversions, compressions, and AI models run strictly offline.",
+            description = "Your files never leave your device. All conversions, compressions, and secure operations run strictly offline.",
             visualType = 1
         ),
         OnboardingSlide(
             title = "File Power Tools 🛠️",
             description = "Batch compress images, trim videos, split PDFs, extract text with OCR, strip EXIF metadata, and more.",
             visualType = 2
-        ),
-        OnboardingSlide(
-            title = "Ask Anegan AI ⚡",
-            description = "Describe what you need in natural language. Our smart offline assistant will find and launch the right tool instantly.",
-            visualType = 3
         )
     )
 
@@ -121,7 +116,6 @@ fun OnboardingScreen(
                     0 -> WelcomeVisual()
                     1 -> PrivacyVisual()
                     2 -> UtilitiesVisual()
-                    3 -> AssistantVisual()
                 }
             }
         }
@@ -391,67 +385,4 @@ fun UtilitiesVisual() {
     }
 }
 
-@Composable
-fun AssistantVisual() {
-    val infiniteTransition = rememberInfiniteTransition(label = "ass_dots")
-    val dot1Scale by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "dot1"
-    )
-    val dot2Scale by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600, delayMillis = 200, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "dot2"
-    )
-    val dot3Scale by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600, delayMillis = 400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "dot3"
-    )
 
-    Canvas(modifier = Modifier.size(200.dp)) {
-        val center = size.minDimension / 2
-
-        // Speech bubble path
-        val path = Path().apply {
-            moveTo(center - 70f, center - 40f)
-            lineTo(center + 70f, center - 40f)
-            quadraticBezierTo(center + 90f, center - 40f, center + 90f, center - 10f)
-            lineTo(center + 90f, center + 30f)
-            quadraticBezierTo(center + 90f, center + 50f, center + 70f, center + 50f)
-            lineTo(center - 10f, center + 50f)
-            lineTo(center - 40f, center + 75f)
-            lineTo(center - 45f, center + 50f)
-            lineTo(center - 70f, center + 50f)
-            quadraticBezierTo(center - 90f, center + 50f, center - 90f, center + 30f)
-            lineTo(center - 90f, center - 10f)
-            quadraticBezierTo(center - 90f, center - 40f, center - 70f, center - 40f)
-            close()
-        }
-
-        drawPath(
-            path = path,
-            brush = Brush.linearGradient(
-                colors = listOf(Color(0xFF7C6FFF), Color(0xFFC13584))
-            )
-        )
-
-        // Glowing particles
-        drawCircle(color = Color.White, radius = 5f * dot1Scale, center = Offset(center - 40f, center + 5f))
-        drawCircle(color = Color.White, radius = 5f * dot2Scale, center = Offset(center, center + 5f))
-        drawCircle(color = Color.White, radius = 5f * dot3Scale, center = Offset(center + 40f, center + 5f))
-    }
-}

@@ -237,9 +237,13 @@ fun ConversionFlowScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SizeController(
-            initialQuality = quality,
-            onQualityChanged = { quality = it }
+        AdvancedSizeResolutionController(
+            initialQuality = (quality * 100).toInt(),
+            onQualityChanged = { quality = it / 100f },
+            onScaleChanged = {},
+            onResolutionChanged = { _, _ -> },
+            onTargetSizeChanged = {},
+            onModeChanged = {}
         )
 
         Spacer(modifier = Modifier.height(24.dp))

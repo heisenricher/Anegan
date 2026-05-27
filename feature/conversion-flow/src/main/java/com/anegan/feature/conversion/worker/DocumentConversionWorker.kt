@@ -65,10 +65,12 @@ class DocumentConversionWorker(
                 }
                 "COMPRESS_PDF" -> {
                     val tempFilePath = inputData.getString("tempFilePath") ?: throw Exception("Missing input path")
-                    val dpi = inputData.getInt("dpi", 150)
+                    val targetSizeBytes = inputData.getLong("targetSizeBytes", 0L)
+                    val targetSizeParam = if (targetSizeBytes > 0L) targetSizeBytes else null
+                    val qualityPercent = inputData.getInt("qualityPercent", 80)
                     outputFormat = "PDF"
                     updateProgress(title, 50)
-                    converter.compressPdf(File(tempFilePath), dpi)
+                    converter.compressPdf(File(tempFilePath), targetSizeParam, qualityPercent)
                 }
                 "ENCRYPT_PDF" -> {
                     val tempFilePath = inputData.getString("tempFilePath") ?: throw Exception("Missing input path")

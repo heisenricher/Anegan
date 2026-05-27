@@ -29,8 +29,8 @@ android {
         applicationId = "com.anegan.app"
         minSdk = 29
         targetSdk = 34
-        versionCode = 16
-        versionName = "1.0.16"
+        versionCode = 17
+        versionName = "2.5.0"
     }
 
     signingConfigs {
@@ -93,11 +93,16 @@ dependencies {
     implementation(project(":feature:dashboard"))
     implementation(project(":feature:conversion-flow"))
     implementation(project(":feature:history"))
-    implementation(project(":feature:ai-assistant"))
+    implementation(project(":feature:notes"))
+    implementation(project(":feature:vault"))
+    implementation(project(":feature:file-manager"))
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // Secure Storage (Vault AES-256)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }
 

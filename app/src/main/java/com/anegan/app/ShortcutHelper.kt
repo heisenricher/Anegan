@@ -47,10 +47,21 @@ object ShortcutHelper {
             })
             .build()
 
+        val notesShortcut = ShortcutInfoCompat.Builder(context, "shortcut_notes")
+            .setShortLabel("Notes")
+            .setLongLabel("Quick Note & Reminders")
+            .setIcon(IconCompat.createWithResource(context, R.drawable.ic_launcher))
+            .setIntent(Intent(context, MainActivity::class.java).apply {
+                action = "com.anegan.action.SHORTCUT_NOTES"
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            })
+            .build()
+
         try {
-            ShortcutManagerCompat.setDynamicShortcuts(context, listOf(imagesShortcut, pdfShortcut, historyShortcut))
+            ShortcutManagerCompat.setDynamicShortcuts(context, listOf(imagesShortcut, pdfShortcut, historyShortcut, notesShortcut))
         } catch (e: Exception) {
             android.util.Log.e("AneganShortcuts", "Failed to register launcher shortcuts", e)
         }
     }
 }
+
