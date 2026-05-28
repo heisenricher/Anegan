@@ -129,9 +129,10 @@ object WifiTransferServer {
                 method == "GET" && uri.startsWith("/download") -> {
                     // Serve file download
                     val path = uri.substringAfter("?path=", "")
+                    val baseDir = getBaseDir()
                     if (path.isNotBlank()) {
                         val file = File(path)
-                        if (file.exists() && file.isFile) {
+                        if (isPathSafe(baseDir, file) && file.exists() && file.isFile) {
                             sendFileResponse(output, file)
                         } else {
                             send404Response(output)
@@ -201,15 +202,15 @@ object WifiTransferServer {
         
         val buffer = ByteArray(1024 * 64)
         var totalBytesWritten = 0L
-        val fis = FileInputStream(file)
-        var bytesRead: Int
-        while (fis.read(buffer).also { bytesRead = it } != -1) {
-            out.write(buffer, 0, bytesRead)
-            totalBytesWritten += bytesRead
-            val progress = if (size > 0) totalBytesWritten.toFloat() / size else 0f
-            onTransferProgress?.invoke(file.name, progress, false)
+        FileInputStream(file).use { fis ->
+            var bytesRead: Int
+            while (fis.read(buffer).also { bytesRead = it } != -1) {
+                out.write(buffer, 0, bytesRead)
+                totalBytesWritten += bytesRead
+                val progress = if (size > 0) totalBytesWritten.toFloat() / size else 0f
+                onTransferProgress?.invoke(file.name, progress, false)
+            }
         }
-        fis.close()
         
         onTransferProgress?.invoke(file.name, 1.0f, false)
     }
@@ -237,8 +238,7 @@ object WifiTransferServer {
         if (boundary.isBlank()) return false
         
         try {
-            val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val receiveFolder = File(publicDir, "Anegan/Received")
+            val receiveFolder = File(getBaseDir(), "Received")
             if (!receiveFolder.exists()) receiveFolder.mkdirs()
             
             val boundaryBytes = "--$boundary".toByteArray(Charsets.UTF_8)
@@ -274,12 +274,14 @@ object WifiTransferServer {
                 if (headerLine.lowercase(Locale.ROOT).startsWith("content-disposition:")) {
                     val fn = headerLine.substringAfter("filename=\"", "").substringBefore("\"")
                     if (fn.isNotBlank()) {
-                        filename = fn
+                        filename = sanitizeFileName(fn)
                     }
                 }
             }
             
             val targetFile = File(receiveFolder, filename)
+            if (!isPathSafe(receiveFolder, targetFile)) return false
+
             val fos = FileOutputStream(targetFile)
             val outputStream = BufferedOutputStream(fos)
             
@@ -350,14 +352,14 @@ object WifiTransferServer {
     }
     
     private fun getFilesJson(context: Context): String {
-        val root = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val root = getBaseDir()
         val folders = listOf(
-            File(root, "Anegan"),
-            File(root, "Anegan/Received"),
-            File(root, "Anegan/Documents"),
-            File(root, "Anegan/Video"),
-            File(root, "Anegan/Audio"),
-            File(root, "Anegan/Images")
+            root,
+            File(root, "Received"),
+            File(root, "Documents"),
+            File(root, "Video"),
+            File(root, "Audio"),
+            File(root, "Images")
         )
         
         val files = mutableListOf<File>()
@@ -388,6 +390,34 @@ object WifiTransferServer {
         }
         sb.append("]")
         return sb.toString()
+    }
+
+    private fun getBaseDir(): File {
+        val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        return File(publicDir, "Anegan").apply {
+            if (!exists()) mkdirs()
+        }
+    }
+
+    private fun sanitizeFileName(fileName: String): String {
+        val cleaned = fileName
+            .substringAfterLast('/')
+            .substringAfterLast('\\')
+            .replace(Regex("[\r\n\u0000]"), "")
+            .replace("..", "_")
+            .trim()
+
+        return cleaned.ifBlank { "uploaded_file_${System.currentTimeMillis()}" }
+    }
+
+    private fun isPathSafe(baseDir: File, targetFile: File): Boolean {
+        return try {
+            val baseCanonical = baseDir.canonicalPath
+            val targetCanonical = targetFile.canonicalPath
+            targetCanonical == baseCanonical || targetCanonical.startsWith(baseCanonical + File.separator)
+        } catch (e: Exception) {
+            false
+        }
     }
     
     private fun getDashboardHtml(): String {

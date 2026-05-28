@@ -26,6 +26,7 @@ object FtpServer {
     private var isRunning = false
     private var job: Job? = null
     private const val PORT = 2121
+    private const val DATA_SOCKET_TIMEOUT_MS = 15_000
 
     // Callbacks to communicate with UI
     var onServerStatusChanged: ((Boolean) -> Unit)? = null
@@ -157,8 +158,11 @@ object FtpServer {
                     "PASV" -> {
                         try {
                             passiveServerSocket?.close()
-                            passiveServerSocket = ServerSocket(0) // Listen on dynamic random port
-                            val localPort = passiveServerSocket!!.localPort
+                            val dataServer = ServerSocket(0).apply {
+                                soTimeout = DATA_SOCKET_TIMEOUT_MS
+                            }
+                            passiveServerSocket = dataServer
+                            val localPort = dataServer.localPort
                             val ip = getIpAddress() ?: "127.0.0.1"
                             val ipParts = ip.split(".")
                             if (ipParts.size == 4) {
@@ -167,6 +171,8 @@ object FtpServer {
                                 val ipTuple = "${ipParts[0]},${ipParts[1]},${ipParts[2]},${ipParts[3]},$p1,$p2"
                                 sendResponse("227", "Entering Passive Mode ($ipTuple)")
                             } else {
+                                passiveServerSocket?.close()
+                                passiveServerSocket = null
                                 sendResponse("500", "Cannot establish passive port.")
                             }
                         } catch (e: Exception) {
@@ -200,12 +206,19 @@ object FtpServer {
                             continue
                         }
 
+                        val dataServer = passiveServerSocket
+                        if (dataServer == null) {
+                            sendResponse("425", "Use PASV before LIST.")
+                            continue
+                        }
+
                         sendResponse("150", "Here comes the directory listing.")
                         
                         try {
-                            passiveDataSocket = passiveServerSocket?.accept()
-                            if (passiveDataSocket != null) {
-                                val dataOut = BufferedWriter(OutputStreamWriter(passiveDataSocket!!.getOutputStream(), "UTF-8"))
+                            val dataSocket = dataServer.accept()
+                            passiveDataSocket = dataSocket
+                            dataSocket.use { socket ->
+                                val dataOut = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), "UTF-8"))
                                 val files = activeDir.listFiles() ?: emptyArray()
                                 val sdf = SimpleDateFormat("MMM dd HH:mm", Locale.ROOT)
                                 
@@ -219,16 +232,14 @@ object FtpServer {
                                     }
                                 }
                                 dataOut.flush()
-                                passiveDataSocket!!.close()
-                                passiveDataSocket = null
                                 sendResponse("226", "Directory send OK.")
-                            } else {
-                                sendResponse("425", "Can't open data connection.")
                             }
+                            passiveDataSocket = null
                         } catch (e: Exception) {
                             e.printStackTrace()
                             sendResponse("425", "Listing data connection failed.")
                         } finally {
+                            passiveDataSocket = null
                             passiveServerSocket?.close()
                             passiveServerSocket = null
                         }
@@ -240,13 +251,19 @@ object FtpServer {
                             continue
                         }
 
+                        val dataServer = passiveServerSocket
+                        if (dataServer == null) {
+                            sendResponse("425", "Use PASV before RETR.")
+                            continue
+                        }
+
                         sendResponse("150", "Opening BINARY mode data connection for ${targetFile.name} (${targetFile.length()} bytes).")
 
                         try {
-                            passiveDataSocket = passiveServerSocket?.accept()
-                            if (passiveDataSocket != null) {
-                                val dataOut = BufferedOutputStream(passiveDataSocket!!.getOutputStream())
-                                val fis = FileInputStream(targetFile)
+                            val dataSocket = dataServer.accept()
+                            passiveDataSocket = dataSocket
+                            dataSocket.use { socket ->
+                                val dataOut = BufferedOutputStream(socket.getOutputStream())
                                 val buffer = ByteArray(1024 * 64)
                                 val fileSize = targetFile.length()
                                 var totalWritten = 0L
@@ -254,61 +271,64 @@ object FtpServer {
 
                                 onTransferProgress?.invoke(targetFile.name, 0.0f, false)
 
-                                while (fis.read(buffer).also { len = it } != -1) {
-                                    dataOut.write(buffer, 0, len)
-                                    totalWritten += len
-                                    val prog = if (fileSize > 0) totalWritten.toFloat() / fileSize else 0f
-                                    onTransferProgress?.invoke(targetFile.name, prog, false)
+                                FileInputStream(targetFile).use { fis ->
+                                    while (fis.read(buffer).also { len = it } != -1) {
+                                        dataOut.write(buffer, 0, len)
+                                        totalWritten += len
+                                        val prog = if (fileSize > 0) totalWritten.toFloat() / fileSize else 0f
+                                        onTransferProgress?.invoke(targetFile.name, prog, false)
+                                    }
                                 }
                                 dataOut.flush()
-                                fis.close()
-                                passiveDataSocket!!.close()
-                                passiveDataSocket = null
                                 
                                 onTransferProgress?.invoke(targetFile.name, 1.0f, false)
                                 sendResponse("226", "Transfer complete.")
-                            } else {
-                                sendResponse("425", "Can't open data connection.")
                             }
+                            passiveDataSocket = null
                         } catch (e: Exception) {
                             e.printStackTrace()
                             sendResponse("425", "Download data connection failed.")
                         } finally {
+                            passiveDataSocket = null
                             passiveServerSocket?.close()
                             passiveServerSocket = null
                         }
                     }
                     "STOR" -> {
-                        val targetFile = File(File(baseDir, currentRelPath), arg)
-                        if (!isPathSafe(baseDir, targetFile)) {
+                        val sanitizedArg = sanitizeFtpArg(arg)
+                        val targetFile = File(File(baseDir, currentRelPath), sanitizedArg)
+                        if (!isPathSafe(baseDir, targetFile) || isBaseDirectory(baseDir, targetFile)) {
                             sendResponse("550", "Permission denied.")
+                            continue
+                        }
+
+                        val dataServer = passiveServerSocket
+                        if (dataServer == null) {
+                            sendResponse("425", "Use PASV before STOR.")
                             continue
                         }
 
                         sendResponse("150", "Ok to send data.")
 
                         try {
-                            passiveDataSocket = passiveServerSocket?.accept()
-                            if (passiveDataSocket != null) {
-                                val dataIn = BufferedInputStream(passiveDataSocket!!.getInputStream())
-                                val fos = FileOutputStream(targetFile)
+                            val dataSocket = dataServer.accept()
+                            passiveDataSocket = dataSocket
+                            dataSocket.use { socket ->
+                                val dataIn = BufferedInputStream(socket.getInputStream())
                                 val buffer = ByteArray(1024 * 64)
                                 var len: Int
-                                var totalRead = 0L
 
                                 onTransferProgress?.invoke(targetFile.name, 0.0f, true)
 
-                                while (dataIn.read(buffer).also { len = it } != -1) {
-                                    fos.write(buffer, 0, len)
-                                    totalRead += len
-                                    // Progress estimated since exact upload content size isn't always given prior
-                                    onTransferProgress?.invoke(targetFile.name, 0.5f, true)
+                                FileOutputStream(targetFile).use { fos ->
+                                    while (dataIn.read(buffer).also { len = it } != -1) {
+                                        fos.write(buffer, 0, len)
+                                        // Progress estimated since exact upload content size isn't always given prior
+                                        onTransferProgress?.invoke(targetFile.name, 0.5f, true)
+                                    }
+                                    fos.flush()
                                 }
-                                fos.flush()
-                                fos.close()
                                 dataIn.close()
-                                passiveDataSocket!!.close()
-                                passiveDataSocket = null
 
                                 try {
                                     android.media.MediaScannerConnection.scanFile(
@@ -323,20 +343,20 @@ object FtpServer {
 
                                 onTransferProgress?.invoke(targetFile.name, 1.0f, true)
                                 sendResponse("226", "Transfer complete.")
-                            } else {
-                                sendResponse("425", "Can't open data connection.")
                             }
+                            passiveDataSocket = null
                         } catch (e: Exception) {
                             e.printStackTrace()
                             sendResponse("425", "Upload data connection failed.")
                         } finally {
+                            passiveDataSocket = null
                             passiveServerSocket?.close()
                             passiveServerSocket = null
                         }
                     }
                     "DELE" -> {
                         val targetFile = File(File(baseDir, currentRelPath), arg)
-                        if (isPathSafe(baseDir, targetFile) && targetFile.exists() && targetFile.isFile) {
+                        if (isPathSafe(baseDir, targetFile) && !isBaseDirectory(baseDir, targetFile) && targetFile.exists() && targetFile.isFile) {
                             if (targetFile.delete()) {
                                 sendResponse("250", "File deleted successfully.")
                             } else {
@@ -360,7 +380,12 @@ object FtpServer {
                     }
                     "RMD" -> {
                         val targetDir = File(File(baseDir, currentRelPath), arg)
-                        if (isPathSafe(baseDir, targetDir) && targetDir.exists() && targetDir.isDirectory) {
+                        if (
+                            isPathSafe(baseDir, targetDir) &&
+                            !isBaseDirectory(baseDir, targetDir) &&
+                            targetDir.exists() &&
+                            targetDir.isDirectory
+                        ) {
                             if (targetDir.deleteRecursively()) {
                                 sendResponse("250", "Directory removed successfully.")
                             } else {
@@ -414,8 +439,13 @@ object FtpServer {
     }
 
     private fun resolveRelativePath(currentRel: String, arg: String): String {
-        val root = currentRel.split("/").filter { it.isNotEmpty() }.toMutableList()
-        val segments = arg.split("/", "\\").filter { it.isNotEmpty() }
+        val cleanedArg = arg.trim().trim('"')
+        val root = if (cleanedArg.startsWith("/") || cleanedArg.startsWith("\\")) {
+            mutableListOf()
+        } else {
+            currentRel.split("/").filter { it.isNotEmpty() }.toMutableList()
+        }
+        val segments = cleanedArg.split("/", "\\").filter { it.isNotEmpty() }
         for (seg in segments) {
             if (seg == "..") {
                 if (root.isNotEmpty()) root.removeAt(root.size - 1)
@@ -430,9 +460,27 @@ object FtpServer {
         return try {
             val baseCanonical = baseDir.canonicalPath
             val targetCanonical = targetFile.canonicalPath
-            targetCanonical.startsWith(baseCanonical)
+            targetCanonical == baseCanonical || targetCanonical.startsWith(baseCanonical + File.separator)
         } catch (e: Exception) {
             false
         }
+    }
+
+    private fun isBaseDirectory(baseDir: File, targetFile: File): Boolean {
+        return try {
+            baseDir.canonicalFile == targetFile.canonicalFile
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun sanitizeFtpArg(arg: String): String {
+        return arg
+            .substringAfterLast('/')
+            .substringAfterLast('\\')
+            .replace("..", "_")
+            .replace(Regex("[\r\n\u0000]"), "")
+            .trim()
+            .ifBlank { "unnamed_file_${System.currentTimeMillis()}" }
     }
 }
