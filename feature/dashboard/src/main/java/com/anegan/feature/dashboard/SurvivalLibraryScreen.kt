@@ -83,7 +83,7 @@ fun SurvivalLibraryScreen(
                         onBack()
                     }
                 }) {
-                    Text("◀ Back", color = MidnightIndigo, fontWeight = FontWeight.Bold)
+                    Text("⬅️ Back", color = MidnightIndigo, fontWeight = FontWeight.Bold)
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -155,12 +155,12 @@ fun SurvivalLibraryScreen(
                                     color = MidnightIndigo
                                 )
                                 Text(
-                                    text = "Offline Technical Reference Manual",
+                                    text = "📖 Offline Technical Reference Manual",
                                     fontSize = 12.sp,
                                     color = Color.Gray
                                 )
                             }
-                            Text("▶", color = Color.LightGray)
+                            Text("➡️", color = Color.LightGray)
                         }
                     }
                 }

@@ -37,7 +37,7 @@ fun FeedbackScreen(
             .padding(24.dp)
     ) {
         Text(
-            text = "Submit Feedback",
+            text = "Submit Feedback 💬",
             style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
             color = MidnightIndigo
         )
@@ -52,7 +52,7 @@ fun FeedbackScreen(
                 .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surface),
-            placeholder = { Text("What can we improve?", color = PlatinumSilver) },
+            placeholder = { Text("💡 What can we improve?", color = PlatinumSilver) },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MidnightIndigo,
                 unfocusedBorderColor = Color.Transparent
@@ -94,7 +94,7 @@ fun FeedbackScreen(
             if (isSubmitting) {
                 CircularProgressIndicator(color = PureWhite, modifier = Modifier.size(24.dp))
             } else {
-                Text("Send Securely", style = MaterialTheme.typography.titleLarge)
+                Text("🚀 Send Securely", style = MaterialTheme.typography.titleLarge)
             }
         }
     }

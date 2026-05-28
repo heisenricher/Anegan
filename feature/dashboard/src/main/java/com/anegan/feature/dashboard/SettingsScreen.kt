@@ -109,7 +109,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Section 1: Appearance
-        Text("Appearance", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
+        Text("🎨 Appearance", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
         Spacer(modifier = Modifier.height(12.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -118,7 +118,7 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 // Theme selection (System / Light / Dark)
-                Text("Theme Mode", fontSize = 14.sp, color = MidnightIndigo)
+                Text("🌓 Theme Mode", fontSize = 14.sp, color = MidnightIndigo)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val themes = listOf("System", "Light", "Dark")
@@ -149,7 +149,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Material You Dynamic Color", fontSize = 14.sp, color = MidnightIndigo)
+                        Text("🌈 Material You Dynamic Color", fontSize = 14.sp, color = MidnightIndigo)
                         Text("Adapt colors to system wallpaper (Android 12+)", fontSize = 11.sp, color = Color.Gray)
                     }
                     Switch(
@@ -171,7 +171,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("AMOLED Dark Mode", fontSize = 14.sp, color = MidnightIndigo)
+                        Text("🕶️ AMOLED Dark Mode", fontSize = 14.sp, color = MidnightIndigo)
                         Text("Pure black background to save battery", fontSize = 11.sp, color = Color.Gray)
                     }
                     Switch(
@@ -187,7 +187,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Custom Fonts Selector
-                Text("App Font Style", fontSize = 14.sp, color = MidnightIndigo)
+                Text("✍️ App Font Style", fontSize = 14.sp, color = MidnightIndigo)
                 Spacer(modifier = Modifier.height(8.dp))
                 androidx.compose.foundation.lazy.LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -227,7 +227,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Section 2: Default Conversion
-        Text("Default Conversions", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
+        Text("⚙️ Default Conversions", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
         Spacer(modifier = Modifier.height(12.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -236,7 +236,7 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 // Default image format
-                Text("Default Image Target Format", fontSize = 14.sp, color = MidnightIndigo)
+                Text("🖼️ Default Image Target Format", fontSize = 14.sp, color = MidnightIndigo)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val formats = listOf("JPG", "PNG", "WEBP")
@@ -261,7 +261,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Default Quality
-                Text("Default Conversion Quality: $defaultQuality%", fontSize = 14.sp, color = MidnightIndigo)
+                Text("🎯 Default Conversion Quality: $defaultQuality%", fontSize = 14.sp, color = MidnightIndigo)
                 Slider(
                     value = defaultQuality.toFloat(),
                     onValueChange = { q ->
@@ -277,7 +277,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Section 3: Storage & Maintenance
-        Text("Storage & Maintenance", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
+        Text("📁 Storage & Maintenance", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
         Spacer(modifier = Modifier.height(12.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -285,7 +285,7 @@ fun SettingsScreen(
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Output Directory", fontSize = 14.sp, color = MidnightIndigo)
+                Text("📂 Output Directory", fontSize = 14.sp, color = MidnightIndigo)
                 Text("Documents/Anegan/", fontSize = 12.sp, color = Color.Gray)
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -296,7 +296,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("App Temp Cache Size", fontSize = 14.sp, color = MidnightIndigo)
+                        Text("🗑️ App Temp Cache Size", fontSize = 14.sp, color = MidnightIndigo)
                         Text(String.format("%.2f MB cached", cacheSizeMb), fontSize = 12.sp, color = Color.Gray)
                     }
                     Button(
@@ -319,7 +319,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Onboarding Tutorial", fontSize = 14.sp, color = MidnightIndigo)
+                        Text("🚀 Onboarding Tutorial", fontSize = 14.sp, color = MidnightIndigo)
                         Text("Replay the welcome tour", fontSize = 12.sp, color = Color.Gray)
                     }
                     Button(

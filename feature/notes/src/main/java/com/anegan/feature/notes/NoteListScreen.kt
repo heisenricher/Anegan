@@ -34,6 +34,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.MoreVert
+import android.widget.Toast
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -180,6 +184,57 @@ fun deleteNote(context: Context, noteId: String): List<Note> {
     return updated
 }
 
+fun exportNotesBackup(context: Context): String? {
+    try {
+        val notes = loadNotes(context)
+        val arr = JSONArray()
+        notes.forEach { arr.put(it.toJson()) }
+        
+        val baseDir = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "Anegan")
+        val docDir = java.io.File(baseDir, "Documents").apply { if (!exists()) mkdirs() }
+        
+        val sdf = SimpleDateFormat("yyyyMMdd_HHmm", Locale.ROOT)
+        val timestamp = sdf.format(Date())
+        val backupFile = java.io.File(docDir, "Anegan_Notes_Backup_$timestamp.json")
+        
+        java.io.FileWriter(backupFile).use { it.write(arr.toString()) }
+        return backupFile.absolutePath
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return null
+    }
+}
+
+fun importNotesBackup(context: Context, backupFile: java.io.File): Result<Int> {
+    return try {
+        val json = backupFile.readText()
+        val arr = JSONArray(json)
+        val imported = (0 until arr.length()).map { arr.getJSONObject(it).toNote() }
+        
+        val existing = loadNotes(context).toMutableList()
+        var mergedCount = 0
+        
+        for (impNote in imported) {
+            val idx = existing.indexOfFirst { it.id == impNote.id }
+            if (idx >= 0) {
+                val existingNote = existing[idx]
+                if (impNote.updatedAt > existingNote.updatedAt) {
+                    existing[idx] = impNote
+                    mergedCount++
+                }
+            } else {
+                existing.add(impNote)
+                mergedCount++
+            }
+        }
+        
+        saveNotes(context, existing)
+        Result.success(mergedCount)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+
 // Helper to parse Wiki-Links [[Note Title]]
 fun parseWikiLinks(content: String): List<String> {
     val regex = Regex("\\[\\[(.*?)\\]\\]")
@@ -220,6 +275,9 @@ fun NoteListScreen(
     var selectedTag  by remember { mutableStateOf<String?>(null) }
     var showGraph    by remember { mutableStateOf(false) }
     var noteToDelete by remember { mutableStateOf<Note?>(null) }
+
+    var backupFilesToSelect by remember { mutableStateOf(listOf<java.io.File>()) }
+    var showImportDialog by remember { mutableStateOf(false) }
 
     // Reload notes whenever the screen becomes active
     LaunchedEffect(Unit) {
@@ -270,6 +328,42 @@ fun NoteListScreen(
                 TextButton(onClick = { noteToDelete = null }) {
                     Text("Cancel")
                 }
+            }
+        )
+    }
+
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            title = { Text("Select Backup to Import") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    backupFilesToSelect.forEach { file ->
+                        Text(
+                            text = file.name,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val res = importNotesBackup(context, file)
+                                    if (res.isSuccess) {
+                                        notes = loadNotes(context)
+                                        Toast.makeText(context, "Merged ${res.getOrNull()} notes successfully!", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, "Import failed: ${res.exceptionOrNull()?.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    showImportDialog = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Divider()
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showImportDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -352,6 +446,51 @@ fun NoteListScreen(
                                 imageVector        = Icons.Default.Search,
                                 contentDescription = "Search",
                                 tint               = MidnightIndigo
+                            )
+                        }
+                        var showMenu by remember { mutableStateOf(false) }
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector        = Icons.Default.MoreVert,
+                                contentDescription = "More options",
+                                tint               = MidnightIndigo
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Export Notes Backup 💾") },
+                                onClick = {
+                                    showMenu = false
+                                    val path = exportNotesBackup(context)
+                                    if (path != null) {
+                                        Toast.makeText(context, "Backup saved to Downloads/Anegan/Documents!", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, "Backup failed!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Import Notes Backup 📂") },
+                                onClick = {
+                                    showMenu = false
+                                    val baseDir = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "Anegan")
+                                    val docDir = java.io.File(baseDir, "Documents")
+                                    val backups = if (docDir.exists() && docDir.isDirectory) {
+                                        docDir.listFiles { _, name -> name.startsWith("Anegan_Notes_Backup") && name.endsWith(".json") }?.toList() ?: emptyList()
+                                    } else {
+                                        emptyList()
+                                    }
+                                    
+                                    if (backups.isEmpty()) {
+                                        Toast.makeText(context, "No backups found in Downloads/Anegan/Documents/ yet. Please export first.", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        backupFilesToSelect = backups
+                                        showImportDialog = true
+                                    }
+                                }
                             )
                         }
                     },
