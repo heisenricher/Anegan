@@ -63,6 +63,7 @@ import com.anegan.feature.documentreader.DocumentHubScreen
 import com.anegan.feature.wifitransfer.WifiTransferScreen
 import com.anegan.feature.apktools.ApkToolsScreen
 import com.anegan.feature.saver.SmartSaverScreen
+import com.anegan.feature.smbshare.SmbShareScreen
 
 class MainActivity : FragmentActivity() {
     private val intentFlow = kotlinx.coroutines.flow.MutableSharedFlow<android.content.Intent>(extraBufferCapacity = 1)
@@ -364,6 +365,8 @@ class MainActivity : FragmentActivity() {
                                     }
                                      targetCategory == "Wi-Fi & FTP Transfer" ->
                                         WifiTransferScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
+                                    targetCategory == "SMB File Sharing" ->
+                                        SmbShareScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
                                     targetCategory == "APK Extractor" ->
                                         ApkToolsScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
                                     targetCategory == "Smart Saver" ->

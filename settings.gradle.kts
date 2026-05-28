@@ -28,4 +28,5 @@ include(":feature:document-reader")
 include(":feature:wifi-transfer")
 include(":feature:apk-tools")
 include(":feature:saver")
+include(":feature:smb-share")
 

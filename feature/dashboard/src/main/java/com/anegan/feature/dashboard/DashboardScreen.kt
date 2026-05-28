@@ -64,6 +64,7 @@ val categories = listOf(
     Category("Document Hub",      "Read your PDFs, DOCX, EPUB & text files", "📂"),
     Category("File Manager",      "Browse, zip, manage your files", "📁"),
     Category("Wi-Fi & FTP Transfer", "Share files locally with standard web browsers or FTP clients", "⚡"),
+    Category("SMB File Sharing", "Browse & transfer files on network shares", "🗄️"),
     Category("APK Extractor",   "Backup and share your installed application packages", "📲"),
     Category("Smart Saver",     "Structured organizer for receipts, IDs & certificates", "💾"),
     Category("Documents",         "Merge, text-to-pdf, unlock", "📄"),

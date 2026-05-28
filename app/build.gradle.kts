@@ -29,8 +29,8 @@ android {
         applicationId = "com.anegan.app"
         minSdk = 29
         targetSdk = 34
-        versionCode = 17
-        versionName = "2.5.0"
+        versionCode = 18
+        versionName = "2.6.0"
     }
 
     signingConfigs {
@@ -100,6 +100,7 @@ dependencies {
     implementation(project(":feature:wifi-transfer"))
     implementation(project(":feature:apk-tools"))
     implementation(project(":feature:saver"))
+    implementation(project(":feature:smb-share"))
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     
