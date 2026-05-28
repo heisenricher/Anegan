@@ -31,4 +31,6 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation(project(":core:designsystem"))
+    implementation(project(":feature:notes"))
+    implementation(project(":feature:document-reader"))
 }

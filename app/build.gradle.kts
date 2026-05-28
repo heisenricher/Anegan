@@ -96,6 +96,10 @@ dependencies {
     implementation(project(":feature:notes"))
     implementation(project(":feature:vault"))
     implementation(project(":feature:file-manager"))
+    implementation(project(":feature:document-reader"))
+    implementation(project(":feature:wifi-transfer"))
+    implementation(project(":feature:apk-tools"))
+    implementation(project(":feature:saver"))
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     

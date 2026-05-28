@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2026 Mahilan (heisenricher). All rights reserved.
+ * 
+ * This source code is licensed under the custom Anegan Attribution License.
+ * Any person or entity using, modifying, or building upon this code must
+ * prominently attribute the original creator Mahilan (heisenricher).
+ * Personal and educational use only.
+ */
+
 package com.anegan.feature.notes
 
 import android.app.DatePickerDialog
@@ -5,70 +14,24 @@ import android.app.TimePickerDialog
 import android.content.Context
 import android.widget.DatePicker
 import android.widget.TimePicker
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FormatBold
-import androidx.compose.material.icons.filled.FormatItalic
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -129,7 +92,7 @@ private val EDITOR_COLORS = listOf(
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Date/Time picker helper (View interop)
+// Date/Time picker helper
 // ─────────────────────────────────────────────────────────────────────────────
 
 private fun showDateTimePicker(
@@ -178,11 +141,12 @@ fun NoteEditorScreen(
     val scrollState  = rememberScrollState()
 
     // ── Load or create note ──────────────────────────────────────────────────
-    val existingNote = remember(noteId) {
-        if (noteId != null) loadNotes(context).firstOrNull { it.id == noteId } else null
+    var allNotesList = remember { loadNotes(context) }
+    var existingNote = remember(noteId) {
+        if (noteId != null) allNotesList.firstOrNull { it.id == noteId } else null
     }
 
-    // ── Editable state ───────────────────────────────────────────────────────
+    // ── Editable states ───────────────────────────────────────────────────────
     var title        by rememberSaveable { mutableStateOf(existingNote?.title   ?: "") }
     var content      by rememberSaveable { mutableStateOf(existingNote?.content ?: "") }
     var isPinned     by rememberSaveable { mutableStateOf(existingNote?.isPinned     ?: false) }
@@ -191,6 +155,14 @@ fun NoteEditorScreen(
     var colorLabel   by rememberSaveable { mutableStateOf(existingNote?.colorLabel   ?: "None") }
     var hasReminder  by rememberSaveable { mutableStateOf(existingNote?.hasReminder  ?: false) }
     var reminderTime by rememberSaveable { mutableStateOf(existingNote?.reminderTime ?: 0L) }
+    var notebook     by rememberSaveable { mutableStateOf(existingNote?.notebook     ?: "Inbox") }
+
+    // Visual switches
+    var isPreviewMode by rememberSaveable { mutableStateOf(false) }
+
+    // Dynamic state modifiers for loaded note in place (backlink spawning)
+    var noteId_final by remember { mutableStateOf(existingNote?.id ?: java.util.UUID.randomUUID().toString()) }
+    var createdAt    by remember { mutableStateOf(existingNote?.createdAt ?: System.currentTimeMillis()) }
 
     // Checklist items – derived from content when checklist mode is on
     val checklistItems = remember(isChecklist, content) {
@@ -199,26 +171,32 @@ fun NoteEditorScreen(
         }
     }
 
-    // ── Text formatting flags (applied to selection, stored per-note as prefix tags) ──
+    // ── Text formatting flags ───────────────────────────────────────────────
     var isBoldActive   by remember { mutableStateOf(false) }
     var isItalicActive by remember { mutableStateOf(false) }
 
     // ── Sheet / dialog visibility ────────────────────────────────────────────
-    var showColorSheet    by remember { mutableStateOf(false) }
-    var showReminderSheet by remember { mutableStateOf(false) }
-    var showOverflowMenu  by remember { mutableStateOf(false) }
-    var showDeleteDialog  by remember { mutableStateOf(false) }
+    var showColorSheet      by remember { mutableStateOf(false) }
+    var showReminderSheet   by remember { mutableStateOf(false) }
+    var showFolderMenu      by remember { mutableStateOf(false) }
+    var showOverflowMenu    by remember { mutableStateOf(false) }
+    var showDeleteDialog    by remember { mutableStateOf(false) }
 
     val colorSheetState    = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val reminderSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    val noteId_final = remember { existingNote?.id ?: java.util.UUID.randomUUID().toString() }
-    val createdAt    = remember { existingNote?.createdAt ?: System.currentTimeMillis() }
-
-    // ── Save helper ──────────────────────────────────────────────────────────
+    // ── Auto Tag Parser & Save helper ────────────────────────────────────────
     fun doSave() {
         val finalContent = if (isChecklist) checklistItems.toContent() else content
         if (title.isBlank() && finalContent.isBlank()) return  // nothing to save
+        
+        // Hashtag regex indexer parses all tags (e.g. #work, #personal)
+        val regex = Regex("\\B#(\\w+)")
+        val parsedTags = regex.findAll(finalContent + " " + title)
+            .map { it.groupValues[1].lowercase() }
+            .distinct()
+            .toList()
+
         val note = Note(
             id          = noteId_final,
             title       = title,
@@ -230,7 +208,9 @@ fun NoteEditorScreen(
             createdAt   = createdAt,
             updatedAt   = System.currentTimeMillis(),
             hasReminder = hasReminder,
-            reminderTime= reminderTime
+            reminderTime= reminderTime,
+            notebook    = notebook,
+            tags        = parsedTags
         )
         upsertNote(context, note)
     }
@@ -368,7 +348,37 @@ fun NoteEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {},
+                title = {
+                    // Segment control for Edit vs Preview
+                    TabRow(
+                        selectedTabIndex = if (isPreviewMode) 1 else 0,
+                        divider = {},
+                        indicator = { tabPositions ->
+                            TabRowDefaults.Indicator(
+                                modifier = Modifier.tabIndicatorOffset(tabPositions[if (isPreviewMode) 1 else 0]),
+                                color = MidnightIndigo
+                            )
+                        },
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(40.dp)
+                            .background(Color.Transparent)
+                    ) {
+                        Tab(
+                            selected = !isPreviewMode,
+                            onClick = { isPreviewMode = false },
+                            text = { Text("Edit", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MidnightIndigo) }
+                        )
+                        Tab(
+                            selected = isPreviewMode,
+                            onClick = {
+                                doSave()
+                                isPreviewMode = true
+                            },
+                            text = { Text("Preview", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MidnightIndigo) }
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = {
                         doSave()
@@ -378,9 +388,31 @@ fun NoteEditorScreen(
                     }
                 },
                 actions = {
-                    // Save
-                    IconButton(onClick = { doSave() }) {
-                        Icon(Icons.Default.Save, contentDescription = "Save", tint = MidnightIndigo)
+                    // Folder/Notebook picker
+                    Box {
+                        TextButton(onClick = { showFolderMenu = true }) {
+                            Text(
+                                text = "📁 ${notebook.uppercase()}",
+                                color = MidnightIndigo,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showFolderMenu,
+                            onDismissRequest = { showFolderMenu = false }
+                        ) {
+                            listOf("Inbox", "Projects", "Areas", "Resources").forEach { folderName ->
+                                DropdownMenuItem(
+                                    text = { Text(folderName) },
+                                    onClick = {
+                                        notebook = folderName
+                                        showFolderMenu = false
+                                        doSave()
+                                    }
+                                )
+                            }
+                        }
                     }
                     // Pin toggle
                     IconToggleButton(
@@ -447,31 +479,41 @@ fun NoteEditorScreen(
                     .verticalScroll(scrollState)
                     .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                // Title field
-                BasicTextField(
-                    value         = title,
-                    onValueChange = { title = it },
-                    textStyle     = TextStyle(
-                        fontSize   = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color      = MaterialTheme.colorScheme.onSurface
-                    ),
-                    cursorBrush   = SolidColor(MidnightIndigo),
-                    modifier      = Modifier.fillMaxWidth(),
-                    decorationBox = { inner ->
-                        Box {
-                            if (title.isEmpty()) {
-                                Text(
-                                    "Title",
-                                    fontSize   = 24.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color      = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                                )
+                // Title field (editable in Edit Mode, read-only header in Preview)
+                if (!isPreviewMode) {
+                    BasicTextField(
+                        value         = title,
+                        onValueChange = { title = it },
+                        textStyle     = TextStyle(
+                            fontSize   = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color      = MaterialTheme.colorScheme.onSurface
+                        ),
+                        cursorBrush   = SolidColor(MidnightIndigo),
+                        modifier      = Modifier.fillMaxWidth(),
+                        decorationBox = { inner ->
+                            Box {
+                                if (title.isEmpty()) {
+                                    Text(
+                                        "Note Title",
+                                        fontSize   = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color      = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                    )
+                                }
+                                inner()
                             }
-                            inner()
                         }
-                    }
-                )
+                    )
+                } else {
+                    Text(
+                        text = title.ifBlank { "Untitled Note" },
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MidnightIndigo,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 Spacer(Modifier.height(8.dp))
 
@@ -479,56 +521,119 @@ fun NoteEditorScreen(
                 val updatedText = remember(existingNote) {
                     existingNote?.let {
                         "Edited " + SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(it.updatedAt))
-                    } ?: ""
+                    } ?: "New Second Brain Note"
                 }
-                if (updatedText.isNotEmpty()) {
-                    Text(
-                        updatedText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                    )
-                }
+                Text(
+                    updatedText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                )
 
                 Divider(
                     modifier  = Modifier.padding(vertical = 10.dp),
                     color     = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
                 )
 
-                // ── Content area: checklist or plain text ──────────────────────
-                if (isChecklist) {
-                    ChecklistEditor(
-                        items     = checklistItems,
-                        onUpdate  = { idx, item -> checklistItems[idx] = item },
-                        onAdd     = { checklistItems.add(ChecklistItem()) },
-                        onRemove  = { idx -> if (checklistItems.size > 1) checklistItems.removeAt(idx) }
-                    )
-                } else {
-                    BasicTextField(
-                        value         = content,
-                        onValueChange = { content = it },
-                        textStyle     = TextStyle(
-                            fontSize   = 16.sp,
-                            fontWeight = if (isBoldActive)   FontWeight.Bold   else FontWeight.Normal,
-                            fontStyle  = if (isItalicActive) FontStyle.Italic  else FontStyle.Normal,
-                            color      = MaterialTheme.colorScheme.onSurface
-                        ),
-                        cursorBrush   = SolidColor(MidnightIndigo),
-                        modifier      = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp),
-                        decorationBox = { inner ->
-                            Box {
-                                if (content.isEmpty()) {
-                                    Text(
-                                        "Start typing…",
-                                        fontSize = 16.sp,
-                                        color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                                    )
-                                }
-                                inner()
+                // ── Content area: Edit vs Preview Markdown Renderer ──────────────────────
+                if (isPreviewMode) {
+                    // Modern Preview Mode
+                    MarkdownPreview(
+                        content = if (isChecklist) checklistItems.toContent() else content,
+                        onWikiLinkClicked = { targetTitle ->
+                            // Obsidian wiki-link behavior: lookup or spawn instantly!
+                            val matched = allNotesList.firstOrNull { it.title.trim().equals(targetTitle.trim(), ignoreCase = true) }
+                            if (matched != null) {
+                                // Save current in-progress edits
+                                doSave()
+                                // Navigate in-place instantly!
+                                title = matched.title
+                                content = matched.content
+                                isPinned = matched.isPinned
+                                isArchived = matched.isArchived
+                                isChecklist = matched.isChecklist
+                                colorLabel = matched.colorLabel
+                                hasReminder = matched.hasReminder
+                                reminderTime = matched.reminderTime
+                                notebook = matched.notebook
+                                noteId_final = matched.id
+                                createdAt = matched.createdAt
+                                isPreviewMode = false
+                                Toast.makeText(context, "Loaded: ${matched.title}", Toast.LENGTH_SHORT).show()
+                            } else {
+                                // Spawns a new note with that title and loads it instantly!
+                                doSave()
+                                val newNote = Note(
+                                    title = targetTitle,
+                                    content = "Spawning note from backlink [[${targetTitle}]]...\n\n",
+                                    notebook = notebook
+                                )
+                                upsertNote(context, newNote)
+                                allNotesList = loadNotes(context)
+                                
+                                title = newNote.title
+                                content = newNote.content
+                                isPinned = newNote.isPinned
+                                isArchived = newNote.isArchived
+                                isChecklist = newNote.isChecklist
+                                colorLabel = newNote.colorLabel
+                                hasReminder = newNote.hasReminder
+                                reminderTime = newNote.reminderTime
+                                notebook = newNote.notebook
+                                noteId_final = newNote.id
+                                createdAt = newNote.createdAt
+                                isPreviewMode = false
+                                Toast.makeText(context, "Spawned & opened: $targetTitle", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        onChecklistToggled = { lineIdx, isChecked ->
+                            // Dynamically update checklist line and trigger save
+                            val lines = content.split("\n").toMutableList()
+                            if (lineIdx in lines.indices) {
+                                val line = lines[lineIdx]
+                                val cleaned = line.removePrefix("[x] ").removePrefix("[X] ").removePrefix("[ ] ")
+                                lines[lineIdx] = if (isChecked) "[x] $cleaned" else "[ ] $cleaned"
+                                content = lines.joinToString("\n")
+                                doSave()
                             }
                         }
                     )
+                } else {
+                    // Standard Edit Mode
+                    if (isChecklist) {
+                        ChecklistEditor(
+                            items     = checklistItems,
+                            onUpdate  = { idx, item -> checklistItems[idx] = item },
+                            onAdd     = { checklistItems.add(ChecklistItem()) },
+                            onRemove  = { idx -> if (checklistItems.size > 1) checklistItems.removeAt(idx) }
+                        )
+                    } else {
+                        BasicTextField(
+                            value         = content,
+                            onValueChange = { content = it },
+                            textStyle     = TextStyle(
+                                fontSize   = 16.sp,
+                                fontWeight = if (isBoldActive)   FontWeight.Bold   else FontWeight.Normal,
+                                fontStyle  = if (isItalicActive) FontStyle.Italic  else FontStyle.Normal,
+                                color      = MaterialTheme.colorScheme.onSurface
+                            ),
+                            cursorBrush   = SolidColor(MidnightIndigo),
+                            modifier      = Modifier
+                                .fillMaxWidth()
+                                .height(320.dp),
+                            decorationBox = { inner ->
+                                Box {
+                                    if (content.isEmpty()) {
+                                        Text(
+                                            "Start writing your thoughts using Markdown tags (#work, [[Note Link]], **bold**)...",
+                                            fontSize = 16.sp,
+                                            color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                        )
+                                    }
+                                    inner()
+                                }
+                            }
+                        )
+                    }
                 }
 
                 // Reminder badge
@@ -563,70 +668,301 @@ fun NoteEditorScreen(
                 Spacer(Modifier.height(80.dp))
             }
 
-            // ── Bottom toolbar ────────────────────────────────────────────────
-            Surface(
-                tonalElevation = 3.dp,
-                modifier       = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-            ) {
-                Row(
-                    modifier              = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment     = Alignment.CenterVertically
+            // ── Keyboard accessory accessory toolbar (Markdown shortcuts bar) ──
+            if (!isPreviewMode) {
+                Surface(
+                    tonalElevation = 2.dp,
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Bold
-                    ToolbarIconButton(
-                        onClick  = { isBoldActive = !isBoldActive },
-                        tint     = if (isBoldActive) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
-                    ) {
-                        Icon(Icons.Default.FormatBold, contentDescription = "Bold")
-                    }
-                    // Italic
-                    ToolbarIconButton(
-                        onClick  = { isItalicActive = !isItalicActive },
-                        tint     = if (isItalicActive) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
-                    ) {
-                        Icon(Icons.Default.FormatItalic, contentDescription = "Italic")
-                    }
-                    // Checklist toggle
-                    ToolbarIconButton(
-                        onClick = {
-                            if (!isChecklist) {
-                                // switching to checklist: parse current content
-                                isChecklist = true
-                                val parsed = content.toChecklistItems()
-                                checklistItems.clear()
-                                checklistItems.addAll(parsed)
-                            } else {
-                                // switching back to plain text: serialise items
-                                content = checklistItems.toContent()
-                                isChecklist = false
+                    Column {
+                        // Quick insertion helper bar
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            val helpers = listOf(
+                                "Heading" to "# ",
+                                "Bold" to "**bold**",
+                                "Italic" to "*italic*",
+                                "Link" to "[[Note]]",
+                                "Checklist" to "- [ ] ",
+                                "Tag" to "#tag"
+                            )
+                            helpers.forEach { (label, value) ->
+                                TextButton(
+                                    onClick = { content += value },
+                                    modifier = Modifier.height(32.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                ) {
+                                    Text(label, fontSize = 11.sp, color = MidnightIndigo, fontWeight = FontWeight.Bold)
+                                }
                             }
-                        },
-                        tint = if (isChecklist) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
-                    ) {
-                        Icon(Icons.Default.Checklist, contentDescription = "Checklist")
-                    }
-                    // Color picker
-                    ToolbarIconButton(
-                        onClick = { showColorSheet = true },
-                        tint    = (NOTE_LABEL_COLORS[colorLabel] ?: MaterialTheme.colorScheme.onSurface.copy(0.55f))
-                            .let { if (colorLabel == "None") MaterialTheme.colorScheme.onSurface.copy(0.55f) else it }
-                    ) {
-                        Icon(Icons.Default.Palette, contentDescription = "Color")
-                    }
-                    // Reminder
-                    ToolbarIconButton(
-                        onClick = { showReminderSheet = true },
-                        tint    = if (hasReminder) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
-                    ) {
-                        Icon(Icons.Default.NotificationsActive, contentDescription = "Reminder")
+                        }
+                        
+                        Divider(color = Color.LightGray.copy(alpha = 0.3f))
+
+                        // Original layout action toolbar
+                        Row(
+                            modifier              = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment     = Alignment.CenterVertically
+                        ) {
+                            // Bold formatting switch
+                            ToolbarIconButton(
+                                onClick  = { isBoldActive = !isBoldActive },
+                                tint     = if (isBoldActive) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
+                            ) {
+                                Icon(Icons.Default.FormatBold, contentDescription = "Bold")
+                            }
+                            // Italic formatting switch
+                            ToolbarIconButton(
+                                onClick  = { isItalicActive = !isItalicActive },
+                                tint     = if (isItalicActive) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
+                            ) {
+                                Icon(Icons.Default.FormatItalic, contentDescription = "Italic")
+                            }
+                            // Checklist toggle
+                            ToolbarIconButton(
+                                onClick = {
+                                    if (!isChecklist) {
+                                        isChecklist = true
+                                        val parsed = content.toChecklistItems()
+                                        checklistItems.clear()
+                                        checklistItems.addAll(parsed)
+                                    } else {
+                                        content = checklistItems.toContent()
+                                        isChecklist = false
+                                    }
+                                },
+                                tint = if (isChecklist) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
+                            ) {
+                                Icon(Icons.Default.Checklist, contentDescription = "Checklist")
+                            }
+                            // Color picker
+                            ToolbarIconButton(
+                                onClick = { showColorSheet = true },
+                                tint    = (NOTE_LABEL_COLORS[colorLabel] ?: MaterialTheme.colorScheme.onSurface.copy(0.55f))
+                                    .let { if (colorLabel == "None") MaterialTheme.colorScheme.onSurface.copy(0.55f) else it }
+                            ) {
+                                Icon(Icons.Default.Palette, contentDescription = "Color")
+                            }
+                            // Reminder
+                            ToolbarIconButton(
+                                onClick = { showReminderSheet = true },
+                                tint    = if (hasReminder) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
+                            ) {
+                                Icon(Icons.Default.NotificationsActive, contentDescription = "Reminder")
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Markdown Preview Composable Renderer
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun MarkdownPreview(
+    content: String,
+    onWikiLinkClicked: (String) -> Unit,
+    onChecklistToggled: (Int, Boolean) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        val lines = content.split("\n")
+        lines.forEachIndexed { index, line ->
+            when {
+                // Markdown checklist lines
+                line.startsWith("[ ] ") || line.startsWith("[x] ") || line.startsWith("[X] ") ||
+                line.startsWith("- [ ] ") || line.startsWith("- [x] ") -> {
+                    val isChecked = line.contains("[x]", ignoreCase = true)
+                    val cleaned = line.removePrefix("- ").removePrefix("[x] ").removePrefix("[X] ").removePrefix("[ ] ")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Checkbox(
+                            checked = isChecked,
+                            onCheckedChange = { onChecklistToggled(index, it) },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = MidnightIndigo,
+                                checkmarkColor = Color.White
+                            )
+                        )
+                        val annotated = renderMarkdownSpans(cleaned, onWikiLinkClicked)
+                        ClickableText(
+                            text = annotated,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = if (isChecked) Color.Gray else MaterialTheme.colorScheme.onSurface,
+                                textDecoration = if (isChecked) androidx.compose.ui.text.style.TextDecoration.LineThrough else null
+                            ),
+                            onClick = { offset ->
+                                annotated.getStringAnnotations(tag = "WIKI_LINK", start = offset, end = offset)
+                                    .firstOrNull()?.let { ann -> onWikiLinkClicked(ann.item) }
+                            }
+                        )
+                    }
+                }
+
+                // Headings
+                line.startsWith("# ") -> {
+                    val annotated = renderMarkdownSpans(line.removePrefix("# "), onWikiLinkClicked)
+                    ClickableText(
+                        text = annotated,
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MidnightIndigo
+                        ),
+                        onClick = { offset ->
+                            annotated.getStringAnnotations(tag = "WIKI_LINK", start = offset, end = offset)
+                                .firstOrNull()?.let { ann -> onWikiLinkClicked(ann.item) }
+                        },
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                line.startsWith("## ") -> {
+                    val annotated = renderMarkdownSpans(line.removePrefix("## "), onWikiLinkClicked)
+                    ClickableText(
+                        text = annotated,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MidnightIndigo
+                        ),
+                        onClick = { offset ->
+                            annotated.getStringAnnotations(tag = "WIKI_LINK", start = offset, end = offset)
+                                .firstOrNull()?.let { ann -> onWikiLinkClicked(ann.item) }
+                        },
+                        modifier = Modifier.padding(vertical = 3.dp)
+                    )
+                }
+                line.startsWith("### ") -> {
+                    val annotated = renderMarkdownSpans(line.removePrefix("### "), onWikiLinkClicked)
+                    ClickableText(
+                        text = annotated,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MidnightIndigo
+                        ),
+                        onClick = { offset ->
+                            annotated.getStringAnnotations(tag = "WIKI_LINK", start = offset, end = offset)
+                                .firstOrNull()?.let { ann -> onWikiLinkClicked(ann.item) }
+                        },
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+
+                // Code block line
+                line.startsWith("```") -> {
+                    // Render code separator line
+                }
+
+                // Paragraph Text
+                else -> {
+                    if (line.isNotBlank()) {
+                        val annotated = renderMarkdownSpans(line, onWikiLinkClicked)
+                        ClickableText(
+                            text = annotated,
+                            style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                            onClick = { offset ->
+                                annotated.getStringAnnotations(tag = "WIKI_LINK", start = offset, end = offset)
+                                    .firstOrNull()?.let { ann -> onWikiLinkClicked(ann.item) }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Custom Span Builder for Nested Formatting (Bold, Italic, Wiki-Link, HashTags) ──
+@Composable
+fun renderMarkdownSpans(
+    text: String,
+    onWikiLinkClicked: (String) -> Unit
+): androidx.compose.ui.text.AnnotatedString {
+    return buildAnnotatedString {
+        var currentIdx = 0
+        val len = text.length
+        
+        while (currentIdx < len) {
+            val wikiLinkMatch = Regex("\\[\\[(.*?)\\]\\]").find(text, currentIdx)
+            val boldMatch = Regex("\\*\\*(.*?)\\*\\*").find(text, currentIdx)
+            val italicMatch = Regex("\\*(.*?)\\*").find(text, currentIdx)
+            val tagMatch = Regex("\\B#(\\w+)").find(text, currentIdx)
+            
+            val matches = listOfNotNull(wikiLinkMatch, boldMatch, italicMatch, tagMatch)
+                .sortedBy { it.range.first }
+            
+            if (matches.isEmpty()) {
+                append(text.substring(currentIdx))
+                break
+            }
+            
+            val firstMatch = matches.first()
+            val matchStart = firstMatch.range.first
+            val matchEnd = firstMatch.range.last + 1
+            
+            if (matchStart > currentIdx) {
+                append(text.substring(currentIdx, matchStart))
+            }
+            
+            when (firstMatch) {
+                wikiLinkMatch -> {
+                    val targetTitle = firstMatch.groupValues[1]
+                    pushStringAnnotation(tag = "WIKI_LINK", annotation = targetTitle)
+                    withStyle(
+                        style = SpanStyle(
+                            color = MidnightIndigo,
+                            textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
+                        append(targetTitle)
+                    }
+                    pop()
+                }
+                boldMatch -> {
+                    val content = firstMatch.groupValues[1]
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append(content)
+                    }
+                }
+                italicMatch -> {
+                    val content = firstMatch.groupValues[1]
+                    withStyle(style = SpanStyle(fontStyle = FontStyle.Italic)) {
+                        append(content)
+                    }
+                }
+                tagMatch -> {
+                    val tagName = firstMatch.groupValues[1]
+                    withStyle(
+                        style = SpanStyle(
+                            color = MidnightIndigo.copy(alpha = 0.8f),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    ) {
+                        append("#$tagName")
+                    }
+                }
+            }
+            currentIdx = matchEnd
         }
     }
 }
@@ -695,10 +1031,10 @@ private fun ChecklistEditor(
             }
         }
         TextButton(onClick = onAdd) {
-            Icon(Icons.Default.Close.also {}, contentDescription = null,
+            Icon(Icons.Default.Add, contentDescription = null,
                 modifier = Modifier.size(14.dp), tint = MidnightIndigo)
             Spacer(Modifier.width(4.dp))
-            Text("+ Add item", color = MidnightIndigo, style = MaterialTheme.typography.bodyMedium)
+            Text("Add item", color = MidnightIndigo, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

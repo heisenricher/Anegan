@@ -52,18 +52,47 @@ private val AneganDarkColorScheme = darkColorScheme(
     onSurface = Color(0xFFF8FAFC)
 )
 
+// AMOLED Pure Black Color Scheme for battery saving and premium high-contrast looks
+private val AneganAmoledColorScheme = darkColorScheme(
+    primary = Color(0xFFE2E8F0),
+    secondary = LuminousGlow,
+    tertiary = MidnightIndigo,
+    background = Color(0xFF000000), // AMOLED Pure Black
+    surface = Color(0xFF121212),    // Rich deep dark surface card
+    onPrimary = MidnightIndigo,
+    onSecondary = Color(0xFFFFFFFF),
+    onTertiary = Color(0xFFFFFFFF),
+    onBackground = Color(0xFFFFFFFF),
+    onSurface = Color(0xFFE2E8F0)
+)
+
 @Composable
 fun AneganTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
+    amoledDark: Boolean = false,
+    fontName: String = "Default",
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     val colorScheme = when {
         dynamicColor && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S -> {
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            val base = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (darkTheme && amoledDark) {
+                base.copy(
+                    background = Color(0xFF000000),
+                    surface = Color(0xFF121212),
+                    surfaceVariant = Color(0xFF1E1E1E),
+                    onBackground = Color(0xFFFFFFFF),
+                    onSurface = Color(0xFFE2E8F0)
+                )
+            } else {
+                base
+            }
         }
-        darkTheme -> AneganDarkColorScheme
+        darkTheme -> {
+            if (amoledDark) AneganAmoledColorScheme else AneganDarkColorScheme
+        }
         else -> AneganLightColorScheme
     }
     
@@ -78,7 +107,8 @@ fun AneganTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = AneganTypography,
+        typography = getTypographyForFont(fontName),
         content = content
     )
 }
+

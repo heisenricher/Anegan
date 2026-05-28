@@ -24,4 +24,8 @@ include(":feature:history")
 include(":feature:notes")
 include(":feature:vault")
 include(":feature:file-manager")
+include(":feature:document-reader")
+include(":feature:wifi-transfer")
+include(":feature:apk-tools")
+include(":feature:saver")
 

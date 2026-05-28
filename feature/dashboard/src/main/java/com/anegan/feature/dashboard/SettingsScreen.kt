@@ -23,12 +23,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
 import com.anegan.core.designsystem.theme.LuminousGlow
+import androidx.compose.ui.text.font.FontFamily
+import com.anegan.core.designsystem.theme.OutfitFontFamily
+import com.anegan.core.designsystem.theme.MontserratFontFamily
+import com.anegan.core.designsystem.theme.PlayfairFontFamily
+import com.anegan.core.designsystem.theme.FiraCodeFontFamily
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +53,12 @@ fun SettingsScreen(
     }
     var themeSelection by remember {
         mutableStateOf(prefs.getString("pref_theme_mode", "System") ?: "System") // "System", "Light", "Dark"
+    }
+    var amoledThemeEnabled by remember {
+        mutableStateOf(prefs.getBoolean("pref_amoled_theme", false))
+    }
+    var customFontSelection by remember {
+        mutableStateOf(prefs.getString("pref_custom_font", "Default") ?: "Default")
     }
     var defaultImgFormat by remember {
         mutableStateOf(prefs.getString("pref_default_img_format", "JPG") ?: "JPG")
@@ -116,7 +128,6 @@ fun SettingsScreen(
                             onClick = {
                                 themeSelection = mode
                                 prefs.edit().putString("pref_theme_mode", mode).apply()
-                                Toast.makeText(context, "Theme will apply on next restart", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.background,
@@ -146,10 +157,69 @@ fun SettingsScreen(
                         onCheckedChange = { checked ->
                             dynamicThemeEnabled = checked
                             prefs.edit().putBoolean("pref_dynamic_color", checked).apply()
-                            Toast.makeText(context, "Restart app to apply dynamics", Toast.LENGTH_SHORT).show()
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = MidnightIndigo, checkedTrackColor = LuminousGlow)
                     )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // AMOLED Dark Mode Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("AMOLED Dark Mode", fontSize = 14.sp, color = MidnightIndigo)
+                        Text("Pure black background to save battery", fontSize = 11.sp, color = Color.Gray)
+                    }
+                    Switch(
+                        checked = amoledThemeEnabled,
+                        onCheckedChange = { checked ->
+                            amoledThemeEnabled = checked
+                            prefs.edit().putBoolean("pref_amoled_theme", checked).apply()
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = MidnightIndigo, checkedTrackColor = LuminousGlow)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Custom Fonts Selector
+                Text("App Font Style", fontSize = 14.sp, color = MidnightIndigo)
+                Spacer(modifier = Modifier.height(8.dp))
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val fontOptions = listOf("Default", "Outfit", "Montserrat", "Playfair Display", "Fira Code")
+                    items(fontOptions) { font ->
+                        val isSelected = customFontSelection == font
+                        Button(
+                            onClick = {
+                                customFontSelection = font
+                                prefs.edit().putString("pref_custom_font", font).apply()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.background,
+                                contentColor = if (isSelected) PureWhite else MidnightIndigo
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = font,
+                                fontSize = 12.sp,
+                                fontFamily = when (font) {
+                                    "Outfit" -> OutfitFontFamily
+                                    "Montserrat" -> MontserratFontFamily
+                                    "Playfair Display" -> PlayfairFontFamily
+                                    "Fira Code" -> FiraCodeFontFamily
+                                    else -> FontFamily.SansSerif
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
