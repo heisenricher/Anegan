@@ -193,6 +193,7 @@ fun DocumentConversionScreen(
                         0.0
                     }
                     
+                    val calculatedCrf = ((100 - qualityPercent) / 100f * 51).toInt().coerceIn(0, 51)
                     val workRequest = OneTimeWorkRequestBuilder<MediaConversionWorker>()
                         .setInputData(
                             workDataOf(
@@ -200,7 +201,7 @@ fun DocumentConversionScreen(
                                 "tempFilePath" to tempFile.absolutePath,
                                 "originalFileName" to (selectedFileNames.firstOrNull() ?: tempFile.name),
                                 "originalFileSize" to (selectedFileSizes.firstOrNull() ?: tempFile.length()),
-                                "crf" to 28,
+                                "crf" to calculatedCrf,
                                 "targetSizeMb" to targetSizeDouble
                             )
                         )
@@ -297,7 +298,20 @@ fun DocumentConversionScreen(
                             val res = docConverter.pdfToImages(tempFile, "jpg")
                             if (res.isSuccess) {
                                 val files = res.getOrThrow()
-                                if (files.isNotEmpty()) successFile = files.first()
+                                if (files.isNotEmpty()) {
+                                    if (files.size == 1) {
+                                        successFile = files.first()
+                                    } else {
+                                        val zipRes = docConverter.zipFiles(files, "PDF_Images_${System.currentTimeMillis()}")
+                                        if (zipRes.isSuccess) {
+                                            successFile = zipRes.getOrThrow()
+                                            outputFormat = "ZIP"
+                                            files.forEach { it.delete() }
+                                        } else {
+                                            successFile = files.first()
+                                        }
+                                    }
+                                }
                             }
                             tempFile.delete()
                         }

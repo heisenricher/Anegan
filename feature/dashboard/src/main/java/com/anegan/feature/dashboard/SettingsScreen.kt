@@ -444,9 +444,9 @@ fun SettingsScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         val currentVersion = try {
-                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "3.2.0"
+                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "3.2.5"
                         } catch (e: Exception) {
-                            "3.2.0"
+                            "3.2.5"
                         }
                         Text(
                             text = "Anegan Console v$currentVersion", 

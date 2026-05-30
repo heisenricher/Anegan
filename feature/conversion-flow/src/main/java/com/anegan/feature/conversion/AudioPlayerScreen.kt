@@ -111,6 +111,16 @@ fun AudioPlayerScreen(
     var selectedPreset by remember { mutableStateOf<Short>(0) }
     var numPresets by remember { mutableStateOf(0) }
     
+    LaunchedEffect(Unit) {
+        try {
+            val eq = Equalizer(0, 0)
+            equalizer = eq
+            numPresets = eq.numberOfPresets.toInt()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
     // Active tabs: "LIBRARY", "PLAYLISTS", "ALBUMS", "FAVORITES", "STATS"
     var activeTab by remember { mutableStateOf("LIBRARY") }
     

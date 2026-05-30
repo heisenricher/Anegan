@@ -29,6 +29,10 @@
 
 # Room Database
 -keep class * extends androidx.room.RoomDatabase
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep class androidx.room.RoomDatabase { *; }
+-keep @androidx.room.Entity class *
+-keep @androidx.room.Dao class *
 -dontwarn androidx.room.**
 
 # WorkManager
@@ -51,6 +55,18 @@
 
 # Compose stability
 -keep class androidx.compose.** { *; }
+
+# Media3 (ExoPlayer)
+-keep class androidx.media3.** { *; }
+-keep interface androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+
+# Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepclassmembernames class kotlinx.** {
+    volatile <fields>;
+}
 
 # JCIFS SMB (smb-share module)  
 -keep class jcifs.** { *; }

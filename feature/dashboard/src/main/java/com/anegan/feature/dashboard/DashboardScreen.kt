@@ -122,7 +122,6 @@ val mediaGroup = listOf(
 )
 
 val docsGroup = listOf(
-    Category("Document Hub", "Read your PDFs, DOCX, EPUB & text files", "📂"),
     Category("PDF Tools", "Split, compress, encrypt, images", "🗏"),
     Category("Documents", "Merge, text-to-pdf, unlock", "📄"),
     Category("PDF Reader & Editor", "Read, draw, sign and edit pages", "✍️"),
@@ -149,8 +148,7 @@ val securityGroup = listOf(
 
 val transferGroup = listOf(
     Category("Wi-Fi & FTP Transfer", "Share files locally with standard web browsers or FTP clients", "⚡"),
-    Category("SMB File Sharing", "Browse & transfer files on network shares", "🗄️"),
-    Category("Offline Comm", "Bluetooth chat, SOS beacon, mesh", "📡")
+    Category("SMB File Sharing", "Browse & transfer files on network shares", "🗄️")
 )
 
 val learningGroup = listOf(
@@ -457,7 +455,7 @@ fun DashboardScreen(
                                                 neonAccent = NeonCyan,
                                                 enableGlow = true,
                                                 onClick = {
-                                                    onPresetSelected("Document Hub", mapOf("initialFilePath" to displayFilePath!!))
+                                                    onPresetSelected("PDF Reader & Editor", mapOf("initialFilePath" to displayFilePath!!))
                                                 }
                                             ) {
                                                 Row(

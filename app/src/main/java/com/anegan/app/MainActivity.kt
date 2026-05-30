@@ -55,7 +55,6 @@ import com.anegan.feature.conversion.CompassScreen
 import com.anegan.feature.conversion.CalculatorScreen
 import com.anegan.feature.conversion.FlashlightScreen
 import com.anegan.feature.conversion.CurrencyConverterScreen
-import com.anegan.feature.conversion.OfflineCommScreen
 import com.anegan.feature.conversion.VoiceRecorderScreen
 import com.anegan.feature.history.HistoryScreen
 import com.anegan.feature.history.BiometricHelper
@@ -64,7 +63,6 @@ import com.anegan.feature.notes.NoteEditorScreen
 import com.anegan.feature.vault.VaultScreen
 import com.anegan.feature.filemanager.FileManagerScreen
 import com.anegan.feature.filemanager.StorageAnalyzerScreen
-import com.anegan.feature.documentreader.DocumentHubScreen
 import com.anegan.feature.wifitransfer.WifiTransferScreen
 import com.anegan.feature.apktools.ApkToolsScreen
 import com.anegan.feature.saver.SmartSaverScreen
@@ -182,9 +180,9 @@ class MainActivity : FragmentActivity() {
                                     val path = saveSharedStreamToCache(streamUri, typ)
                                     if (path != null) {
                                         presetParams = mapOf("initialFilePath" to path)
-                                        selectedCategory = "Document Hub"
+                                        selectedCategory = "PDF Reader & Editor"
                                     } else {
-                                        selectedCategory = "Document Hub"
+                                        selectedCategory = "PDF Reader & Editor"
                                     }
                                 }
                             }
@@ -219,22 +217,22 @@ class MainActivity : FragmentActivity() {
                             mimeType == "application/pdf" -> {
                                 val path = uri?.let { saveSharedStreamToCache(it, mimeType) }
                                 presetParams = path?.let { mapOf("initialFilePath" to it) }
-                                selectedCategory = "Document Hub"
+                                selectedCategory = "PDF Reader & Editor"
                             }
                             mimeType?.startsWith("text/") == true || mimeType?.contains("epub") == true || mimeType?.contains("word") == true || mimeType?.contains("officedocument") == true -> {
                                 val path = uri?.let { saveSharedStreamToCache(it, mimeType) }
                                 presetParams = path?.let { mapOf("initialFilePath" to it) }
-                                selectedCategory = "Document Hub"
+                                selectedCategory = "PDF Reader & Editor"
                             }
                             mimeType == "application/zip" || mimeType?.contains("zip") == true || mimeType?.contains("archive") == true || mimeType == "application/vnd.package-archive" || mimeType?.startsWith("image/") == true -> {
                                 val path = uri?.let { saveSharedStreamToCache(it, mimeType) }
                                 presetParams = path?.let { mapOf("initialFilePath" to it) }
-                                selectedCategory = "Document Hub"
+                                selectedCategory = "PDF Reader & Editor"
                             }
                             else -> {
                                 val path = uri?.let { saveSharedStreamToCache(it, mimeType) }
                                 presetParams = path?.let { mapOf("initialFilePath" to it) }
-                                selectedCategory = "Document Hub"
+                                selectedCategory = "PDF Reader & Editor"
                             }
                         }
                     }
@@ -293,11 +291,7 @@ class MainActivity : FragmentActivity() {
             val haptic = LocalHapticFeedback.current
 
             val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-            val isDark = when (themeSelection) {
-                "Dark" -> true
-                "Light" -> false
-                else -> isSystemDark
-            }
+            val isDark = true // Nova Design System requires Dark Theme to render properly
 
             AneganTheme(
                 darkTheme = isDark,
@@ -376,17 +370,6 @@ class MainActivity : FragmentActivity() {
                                              haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                              selectedCategory = null; presetParams = null; isHistoryAuthenticated = false
                                          })
-                                    targetCategory == "Document Hub" -> {
-                                        val initialPath = presetParams?.get("initialFilePath")
-                                        DocumentHubScreen(
-                                            initialFilePath = initialPath,
-                                            onBack = { 
-                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                selectedCategory = null
-                                                presetParams = null 
-                                            }
-                                        )
-                                    }
                                      targetCategory == "Wi-Fi & FTP Transfer" ->
                                         WifiTransferScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
                                     targetCategory == "SMB File Sharing" ->
@@ -439,8 +422,7 @@ class MainActivity : FragmentActivity() {
                                         FlashlightScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null })
                                     targetCategory == "Currency Converter" ->
                                         CurrencyConverterScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null })
-                                    targetCategory == "Offline Comm" ->
-                                        OfflineCommScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null })
+
                                      targetCategory == "Settings" ->
                                         SettingsScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null })
                                     targetCategory == "Notes" && openNoteEditor ->
@@ -490,7 +472,7 @@ class MainActivity : FragmentActivity() {
                                                     }
                                                     else -> {
                                                         presetParams = mapOf("initialFilePath" to file.absolutePath)
-                                                        selectedCategory = "Document Hub"
+                                                        selectedCategory = "PDF Reader & Editor"
                                                     }
                                                 }
                                             }
