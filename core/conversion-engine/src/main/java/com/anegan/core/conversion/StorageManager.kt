@@ -12,7 +12,7 @@ object StorageManager {
      * "The output folder should be named: Anegan. The app should automatically save files there"
      */
     fun getAneganOutputDirectory(subFolder: String = "Conversions"): File {
-        val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+        val publicDir = Environment.getExternalStorageDirectory()
         val AneganDir = File(publicDir, "Anegan/$subFolder")
         if (!AneganDir.exists()) {
             AneganDir.mkdirs()

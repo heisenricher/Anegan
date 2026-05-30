@@ -29,8 +29,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
-import com.anegan.core.designsystem.theme.PureWhite
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import com.anegan.core.designsystem.theme.*
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -124,164 +126,168 @@ fun OfficeBookReaderScreen(
         onBack()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = docTitle,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MidnightIndigo,
-                        maxLines = 1
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Text("←", fontSize = 24.sp, color = MidnightIndigo, fontWeight = FontWeight.Bold)
-                    }
-                },
-                actions = {
-                    if (isEpub && chapters.isNotEmpty()) {
-                        // Chapter Selection dialog button
-                        Button(
-                            onClick = { showChapterPicker = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite),
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Text("Chapters", fontSize = 11.sp)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(color = MidnightIndigo)
-            } else {
-                if (isEpub && chapters.isNotEmpty()) {
-                    // EPUB Chapter Display layout
-                    val currentChapter = chapters[currentChapterIndex]
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp)
-                    ) {
-                        Text(
-                            text = currentChapter.title,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MidnightIndigo
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Divider(color = Color.LightGray)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        LazyColumn(modifier = Modifier.weight(1f)) {
-                            item {
-                                Text(
-                                    text = currentChapter.content,
-                                    fontSize = 15.sp,
-                                    lineHeight = 26.sp,
-                                    color = Color.DarkGray
-                                )
-                            }
-                        }
-                        
-                        // Chapter navigation footer
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Button(
-                                onClick = { if (currentChapterIndex > 0) currentChapterIndex-- },
-                                enabled = currentChapterIndex > 0,
-                                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
-                            ) {
-                                Text("Previous")
-                            }
-                            Text(
-                                text = "${currentChapterIndex + 1} of ${chapters.size}",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MidnightIndigo
-                            )
-                            Button(
-                                onClick = { if (currentChapterIndex < chapters.size - 1) currentChapterIndex++ },
-                                enabled = currentChapterIndex < chapters.size - 1,
-                                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
-                            ) {
-                                Text("Next")
-                            }
-                        }
-                    }
-                } else if (!isEpub && paragraphs.isNotEmpty()) {
-                    // DOCX Layout
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 24.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(paragraphs) { para ->
-                            Text(
-                                text = para,
-                                fontSize = 15.sp,
-                                lineHeight = 24.sp,
-                                color = Color.DarkGray
+    NovaBackground {
+        Scaffold(
+            topBar = {
+                NovaTopBar(
+                    title = docTitle,
+                    onBack = onBack,
+                    neonAccent = NeonCyan,
+                    actions = {
+                        if (isEpub && chapters.isNotEmpty()) {
+                            NovaChip(
+                                text = "Chapters",
+                                selected = showChapterPicker,
+                                onClick = { showChapterPicker = true },
+                                neonColor = NeonCyan
                             )
                         }
                     }
+                )
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = NeonCyan)
                 } else {
-                    Text("This document is empty", color = Color.Gray, fontSize = 14.sp)
+                    if (isEpub && chapters.isNotEmpty()) {
+                        // EPUB Chapter Display layout
+                        val currentChapter = chapters[currentChapterIndex]
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(NovaTokens.Spacing.xl)
+                        ) {
+                            Text(
+                                text = currentChapter.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = NeonCyan
+                            )
+                            Spacer(modifier = Modifier.height(NovaTokens.Spacing.sm))
+                            Divider(color = NeonCyan.copy(alpha = 0.2f))
+                            Spacer(modifier = Modifier.height(NovaTokens.Spacing.sm))
+                            
+                            LazyColumn(modifier = Modifier.weight(1f)) {
+                                item {
+                                    Text(
+                                        text = currentChapter.content,
+                                        style = NovaTypography.bodyMedium,
+                                        lineHeight = 24.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
+                            
+                            // Chapter navigation footer
+                            Spacer(modifier = Modifier.height(NovaTokens.Spacing.md))
+                            GlassCard(
+                                neonAccent = NeonCyan
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(NovaTokens.Spacing.sm),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    NovaSecondaryButton(
+                                        text = "Previous",
+                                        neonColor = NeonCyan,
+                                        enabled = currentChapterIndex > 0,
+                                        onClick = { if (currentChapterIndex > 0) currentChapterIndex-- }
+                                    )
+                                    Text(
+                                        text = "${currentChapterIndex + 1} of ${chapters.size}",
+                                        style = NovaTypography.tagMono,
+                                        color = NeonCyan
+                                    )
+                                    NovaPrimaryButton(
+                                        text = "Next",
+                                        neonColor = NeonCyan,
+                                        enabled = currentChapterIndex < chapters.size - 1,
+                                        onClick = { if (currentChapterIndex < chapters.size - 1) currentChapterIndex++ }
+                                    )
+                                }
+                            }
+                        }
+                    } else if (!isEpub && paragraphs.isNotEmpty()) {
+                        // DOCX Layout
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = NovaTokens.Spacing.xl, vertical = NovaTokens.Spacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.sm)
+                        ) {
+                            items(paragraphs.size) { idx ->
+                                val para = paragraphs[idx]
+                                NovaAnimatedItem(index = idx) {
+                                    GlassCard(
+                                        neonAccent = Color.Transparent
+                                    ) {
+                                        Text(
+                                            text = para,
+                                            style = NovaTypography.bodyMedium,
+                                            lineHeight = 22.sp,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                            modifier = Modifier.padding(NovaTokens.Spacing.sm)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Text("This document is empty", style = NovaTypography.bodyMedium, color = Color.Gray)
+                    }
                 }
             }
         }
-
+ 
         // Chapter Selection dialog overlay
         if (showChapterPicker && chapters.isNotEmpty()) {
             AlertDialog(
                 onDismissRequest = { showChapterPicker = false },
-                title = { Text("Select Chapter", fontWeight = FontWeight.Bold, color = MidnightIndigo) },
+                title = { Text("Select Chapter", style = MaterialTheme.typography.titleLarge, color = NeonCyan) },
                 text = {
-                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 300.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         items(chapters.size) { idx ->
                             val chap = chapters[idx]
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
+                            NovaAnimatedItem(index = idx) {
+                                GlassCard(
+                                    neonAccent = if (idx == currentChapterIndex) NeonCyan else Color.Transparent,
+                                    onClick = {
                                         currentChapterIndex = idx
                                         showChapterPicker = false
                                     }
-                                    .padding(vertical = 12.dp, horizontal = 8.dp)
-                            ) {
-                                Text(
-                                    text = chap.title,
-                                    fontSize = 14.sp,
-                                    fontWeight = if (idx == currentChapterIndex) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (idx == currentChapterIndex) MidnightIndigo else Color.DarkGray
-                                )
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(NovaTokens.Spacing.sm)
+                                    ) {
+                                        Text(
+                                            text = chap.title,
+                                            style = NovaTypography.bodyMedium.copy(fontWeight = if (idx == currentChapterIndex) FontWeight.Bold else FontWeight.Normal),
+                                            color = if (idx == currentChapterIndex) NeonCyan else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
                             }
-                            Divider()
                         }
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = { showChapterPicker = false }) {
-                        Text("Close", color = MidnightIndigo)
+                        Text("Close", color = NeonCyan, style = NovaTypography.labelLarge)
                     }
                 }
             )

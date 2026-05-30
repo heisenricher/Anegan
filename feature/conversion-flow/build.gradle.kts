@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.anegan.feature.conversion"
-    compileSdk = 34
+    compileSdk = 35
     defaultConfig { minSdk = 29 }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -28,4 +28,18 @@ dependencies {
     
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // ExoPlayer Media3
+    implementation("androidx.media3:media3-exoplayer:1.2.0")
+    implementation("androidx.media3:media3-ui:1.2.0")
+    implementation("androidx.media3:media3-session:1.2.0")
+    implementation("net.objecthunter:exp4j:0.4.8")
+
+    // CameraX
+    val cameraVersion = "1.3.1"
+    implementation("androidx.camera:camera-core:$cameraVersion")
+    implementation("androidx.camera:camera-camera2:$cameraVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraVersion")
+    implementation("androidx.camera:camera-view:$cameraVersion")
+    implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.0")
 }

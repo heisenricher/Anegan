@@ -173,12 +173,15 @@ class ImageBatchConversionWorker(
                 }
 
                 try {
+                    val targetSizeInput = inputData.getLong("targetSizeBytes", -1L)
+                    val targetSizeBytes = if (targetSizeInput > 0) targetSizeInput else null
                     val result = if (format == "PDF") {
                         docConverter.convertToPdf(tempFile)
                     } else {
                         val options = ImageConversionOptions(
                             format = format,
-                            quality = quality
+                            quality = quality,
+                            targetSizeBytes = targetSizeBytes
                         )
                         imageConverter.convertImage(tempFile, options)
                     }

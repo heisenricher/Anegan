@@ -38,7 +38,6 @@ import com.anegan.core.conversion.ExifManager
 import com.anegan.core.conversion.StorageManager
 import com.anegan.core.database.DatabaseProvider
 import com.anegan.core.database.ConversionHistoryEntity
-import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
 import kotlinx.coroutines.launch
 import java.io.File
@@ -83,7 +82,7 @@ fun DocumentConversionScreen(
     var targetSizeMb by remember { mutableStateOf("") }
 
     // EXIF metadata
-    var exifTags by remember { mutableStateOf<Map<String, String>?>(null) }
+    var exifTags by remember { mutableStateOf<Map<String, Map<String, String>>?>(null) }
 
     // Split page inputs
     var splitStartPage by remember { mutableStateOf("1") }
@@ -436,13 +435,13 @@ fun DocumentConversionScreen(
                     .background(MaterialTheme.colorScheme.surface)
                     .border(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
             ) {
-                Text("←", fontSize = 20.sp, color = MidnightIndigo, fontWeight = FontWeight.Bold)
+                Text("←", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = "Document Suite",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo
+                color = MaterialTheme.colorScheme.primary
             )
         }
 
@@ -471,7 +470,7 @@ fun DocumentConversionScreen(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) MidnightIndigo else Color.Transparent)
+                        .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
                         .clickable { activeTab = tab }
                         .padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center
@@ -507,10 +506,10 @@ fun DocumentConversionScreen(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (isSelected) MidnightIndigo.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface)
+                        .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface)
                         .border(
                             width = 0.5.dp,
-                            color = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                             shape = RoundedCornerShape(20.dp)
                         )
                         .clickable { selectedOp = op }
@@ -521,7 +520,7 @@ fun DocumentConversionScreen(
                         text = op,
                         fontSize = 12.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.onSurface
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -564,7 +563,7 @@ fun DocumentConversionScreen(
                         Text(
                             text = if (selectedFileNames.size == 1) "📄 File Selected" else "📁 ${selectedFileNames.size} Files Selected",
                             fontWeight = FontWeight.Bold,
-                            color = MidnightIndigo,
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 15.sp
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -576,7 +575,7 @@ fun DocumentConversionScreen(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         val sizeMb = selectedFileSizes.sum() / (1024f * 1024f)
-                        Text(String.format("Total size: %.2f MB", sizeMb), color = MidnightIndigo, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text(String.format("Total size: %.2f MB", sizeMb), color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                 } else {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -590,7 +589,7 @@ fun DocumentConversionScreen(
                             "Metadata Viewer" -> "Select Image to View EXIF Details"
                             else -> "Select Input File"
                         }
-                        Text(prompt, color = MidnightIndigo, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(prompt, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         Text("100% Secure & Offline", color = Color.Gray, fontSize = 11.sp)
                     }
                 }
@@ -607,22 +606,25 @@ fun DocumentConversionScreen(
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("EXIF Details", fontWeight = FontWeight.Bold, color = MidnightIndigo, fontSize = 16.sp)
+                    Text("EXIF Details", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(12.dp))
                     if (exifTags!!.isEmpty()) {
                         Text("No properties found in this image.", color = Color.Gray, fontSize = 13.sp)
                     } else {
-                        exifTags!!.forEach { (label, value) ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(label, color = Color.Gray, fontSize = 13.sp)
-                                Text(value, color = MidnightIndigo, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        exifTags!!.forEach { (category, catMap) ->
+                            Text(category, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 6.dp))
+                            catMap.forEach { (label, value) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(label, color = Color.Gray, fontSize = 13.sp)
+                                    Text(value, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
                             }
-                            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
                         }
                     }
                 }
@@ -653,7 +655,7 @@ fun DocumentConversionScreen(
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Split Range", fontWeight = FontWeight.Bold, color = MidnightIndigo, fontSize = 15.sp)
+                    Text("Split Range", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 15.sp)
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         OutlinedTextField(
@@ -661,14 +663,14 @@ fun DocumentConversionScreen(
                             onValueChange = { splitStartPage = it },
                             label = { Text("Start Page") },
                             modifier = Modifier.weight(1f),
-                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MidnightIndigo, focusedLabelColor = MidnightIndigo)
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
                         )
                         OutlinedTextField(
                             value = splitEndPage,
                             onValueChange = { splitEndPage = it },
                             label = { Text("End Page") },
                             modifier = Modifier.weight(1f),
-                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MidnightIndigo, focusedLabelColor = MidnightIndigo)
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
                         )
                     }
                 }
@@ -685,7 +687,7 @@ fun DocumentConversionScreen(
                 .height(56.dp),
             enabled = selectedUris.isNotEmpty() && !isExecuting,
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = PureWhite)
         ) {
             if (isExecuting) {
                 CircularProgressIndicator(color = PureWhite, modifier = Modifier.size(24.dp))

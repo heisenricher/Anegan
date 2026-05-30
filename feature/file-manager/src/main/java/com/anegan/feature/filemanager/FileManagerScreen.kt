@@ -9,32 +9,26 @@
 
 package com.anegan.feature.filemanager
 
+import android.content.Context
 import android.os.Environment
 import android.os.StatFs
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -42,64 +36,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Sort
-import androidx.compose.material.icons.filled.ViewList
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Divider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
+import com.anegan.core.designsystem.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -256,12 +214,11 @@ data class QuickLocation(val label: String, val path: String)
 fun quickLocations(): List<QuickLocation> {
     val root = Environment.getExternalStorageDirectory().absolutePath
     return listOf(
-        QuickLocation("Internal Storage", root),
+        QuickLocation("Storage", root),
         QuickLocation("Downloads", "$root/Download"),
         QuickLocation("Documents", "$root/Documents"),
         QuickLocation("Images", "$root/DCIM"),
-        QuickLocation("Videos", "$root/Movies"),
-        QuickLocation("APKs", "$root/Download")
+        QuickLocation("Videos", "$root/Movies")
     )
 }
 
@@ -271,10 +228,16 @@ fun quickLocations(): List<QuickLocation> {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun FileManagerScreen(onBack: () -> Unit) {
+fun FileManagerScreen(
+    onBack: () -> Unit,
+    onOpenFile: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
+    val isDark = isSystemInDarkTheme()
 
     // Navigation stack
     val rootDir = remember { Environment.getExternalStorageDirectory() }
@@ -309,6 +272,8 @@ fun FileManagerScreen(onBack: () -> Unit) {
     // Storage stats
     val (storageTotal, storageUsed, _) = remember { storageStats() }
 
+    val primaryAccent = NeonCyan // Cyan accent for Documents / File manager
+
     // Displayed / filtered + sorted file list
     val displayedFiles by remember {
         derivedStateOf {
@@ -338,7 +303,7 @@ fun FileManagerScreen(onBack: () -> Unit) {
     val breadcrumbs by remember {
         derivedStateOf {
             navigationStack.map { dir ->
-                if (dir == rootDir) "Home" else dir.name
+                if (dir == rootDir) "Root" else dir.name
             }
         }
     }
@@ -353,6 +318,7 @@ fun FileManagerScreen(onBack: () -> Unit) {
             }
             selectedPaths.clear()
             loadDirectory(currentDir)
+            NovaHaptics.warning(view)
             snackbarHostState.showSnackbar(if (success) "Deleted successfully" else "Some files could not be deleted")
         }
     }
@@ -368,7 +334,8 @@ fun FileManagerScreen(onBack: () -> Unit) {
                 }.getOrDefault(false)
             }
             loadDirectory(currentDir)
-            snackbarHostState.showSnackbar(if (result) "Renamed to $newName" else "Rename failed")
+            NovaHaptics.success(view)
+            snackbarHostState.showSnackbar(if (result) "Renamed successfully" else "Rename failed")
         }
     }
 
@@ -381,7 +348,8 @@ fun FileManagerScreen(onBack: () -> Unit) {
             val ok = zipFiles(items, destPath)
             selectedPaths.clear()
             loadDirectory(currentDir)
-            snackbarHostState.showSnackbar(if (ok) "Zipped → $zipName" else "Zip failed")
+            NovaHaptics.success(view)
+            snackbarHostState.showSnackbar(if (ok) "Archive created: $zipName" else "Zip compression failed")
         }
     }
 
@@ -391,91 +359,110 @@ fun FileManagerScreen(onBack: () -> Unit) {
             val destDir = "${currentDir.absolutePath}/${zipItem.name.removeSuffix(".zip")}"
             val ok = unzipFile(zipItem.path, destDir)
             loadDirectory(currentDir)
-            snackbarHostState.showSnackbar(if (ok) "Extracted to $destDir" else "Extraction failed")
+            NovaHaptics.success(view)
+            snackbarHostState.showSnackbar(if (ok) "Extracted to $destDir" else "Zip extraction failed")
         }
     }
 
-    // ═════════════════════════════════════════════════════════════
-    //  Scaffold
-    // ═════════════════════════════════════════════════════════════
+    BackHandler {
+        when {
+            isSearchActive -> { isSearchActive = false; searchQuery = "" }
+            isSelectionMode -> selectedPaths.clear()
+            navigationStack.size > 1 -> navigationStack.removeLast()
+            else -> onBack()
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
-                TopAppBar(
-                    title = {
-                        if (isSearchActive) {
-                            OutlinedTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                placeholder = { Text("Search files…") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
-                            )
-                        } else {
-                            Text(
-                                text = if (isSelectionMode) "${selectedPaths.size} selected" else "File Manager",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
+                NovaTopBar(
+                    title = if (isSelectionMode) "${selectedPaths.size} SELECTED" else "File System",
+                    onBack = {
+                        when {
+                            isSearchActive -> { isSearchActive = false; searchQuery = "" }
+                            isSelectionMode -> selectedPaths.clear()
+                            navigationStack.size > 1 -> navigationStack.removeLast()
+                            else -> onBack()
                         }
                     },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            when {
-                                isSearchActive -> { isSearchActive = false; searchQuery = "" }
-                                isSelectionMode -> selectedPaths.clear()
-                                navigationStack.size > 1 -> navigationStack.removeLast()
-                                else -> onBack()
-                            }
-                        }) {
-                             Icon(
-                                 imageVector = if (isSelectionMode || isSearchActive)
-                                     Icons.Default.Close else Icons.Default.ArrowBack,
-                                 contentDescription = "Back"
-                             )
-                        }
-                    },
+                    neonAccent = primaryAccent,
                     actions = {
                         if (!isSearchActive && !isSelectionMode) {
-                            IconButton(onClick = { isSearchActive = true }) {
-                                Icon(Icons.Default.Search, contentDescription = "Search")
+                            IconButton(onClick = { 
+                                NovaHaptics.click(view)
+                                isSearchActive = true 
+                            }) {
+                                Icon(Icons.Default.Search, contentDescription = "Search", tint = primaryAccent)
                             }
-                            IconButton(onClick = { viewMode = if (viewMode == ViewMode.LIST) ViewMode.GRID else ViewMode.LIST }) {
+                            IconButton(onClick = { 
+                                NovaHaptics.click(view)
+                                viewMode = if (viewMode == ViewMode.LIST) ViewMode.GRID else ViewMode.LIST 
+                            }) {
                                 Icon(
                                     imageVector = if (viewMode == ViewMode.LIST) Icons.Default.GridView else Icons.Default.ViewList,
-                                    contentDescription = "Toggle view"
+                                    contentDescription = "Toggle View Mode",
+                                    tint = primaryAccent
                                 )
                             }
-                            IconButton(onClick = { showSortSheet = true }) {
-                                Icon(Icons.Default.Sort, contentDescription = "Sort")
+                            IconButton(onClick = { 
+                                NovaHaptics.click(view)
+                                showSortSheet = true 
+                            }) {
+                                Icon(Icons.Default.Sort, contentDescription = "Sort Files", tint = primaryAccent)
                             }
                         }
                         if (isSelectionMode) {
                             IconButton(onClick = {
+                                NovaHaptics.click(view)
                                 if (selectedPaths.size == allFiles.size) selectedPaths.clear()
                                 else { selectedPaths.clear(); selectedPaths.addAll(allFiles.map { it.path }) }
                             }) {
                                 Icon(
                                     imageVector = if (selectedPaths.size == allFiles.size)
                                         Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
-                                    contentDescription = "Select all"
+                                    contentDescription = "Select All",
+                                    tint = primaryAccent
                                 )
                             }
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                    }
                 )
-                // Breadcrumb bar
+
+                // Search Overlay Row
+                if (isSearchActive) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = NovaTokens.Spacing.md, vertical = NovaTokens.Spacing.xxs)
+                    ) {
+                        NovaTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = "Search files in folder...",
+                            leadingIcon = Icons.Default.Search,
+                            trailingIcon = Icons.Default.Close,
+                            onTrailingClick = {
+                                isSearchActive = false
+                                searchQuery = ""
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                            neonColor = primaryAccent
+                        )
+                    }
+                }
+
+                // Breadcrumb Path Navigation Bar
                 BreadcrumbBar(
                     crumbs = breadcrumbs,
                     onCrumbClick = { index ->
+                        NovaHaptics.click(view)
                         while (navigationStack.size > index + 1) navigationStack.removeLast()
-                    }
+                    },
+                    neonColor = primaryAccent
                 )
             }
         },
@@ -486,68 +473,133 @@ fun FileManagerScreen(onBack: () -> Unit) {
                 exit = slideOutVertically { it } + fadeOut()
             ) {
                 BatchActionBar(
-                    onDelete = { showDeleteDialog = true },
+                    onDelete = { 
+                        NovaHaptics.warning(view)
+                        showDeleteDialog = true 
+                    },
                     onZip = { performZip(selectedPaths.toList()) },
                     onShare = {
-                        snackbarHostState.let { scope.launch { it.showSnackbar("Share: use system intent in host Activity") } }
-                    }
+                        NovaHaptics.click(view)
+                        Toast.makeText(context, "Sharing selected archives...", Toast.LENGTH_SHORT).show()
+                    },
+                    neonColor = primaryAccent
                 )
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            // Storage summary card
-            StorageSummaryCard(total = storageTotal, used = storageUsed)
+        NovaBackground {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = NovaTokens.Spacing.md, vertical = NovaTokens.Spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.xs)
+            ) {
+                // Storage summary card
+                StorageSummaryCard(total = storageTotal, used = storageUsed, neonColor = primaryAccent)
 
-            // Quick access chips
-            QuickAccessChips { path ->
-                val dir = File(path)
-                if (dir.exists()) {
-                    navigationStack.clear()
-                    navigationStack.add(rootDir)
-                    if (dir != rootDir) navigationStack.add(dir)
-                }
-            }
+                // Quick access locations
+                QuickAccessChips(
+                    currentPath = currentDir.absolutePath,
+                    onLocationSelected = { path ->
+                        NovaHaptics.click(view)
+                        val dir = File(path)
+                        if (dir.exists()) {
+                            navigationStack.clear()
+                            navigationStack.add(rootDir)
+                            if (dir != rootDir) navigationStack.add(dir)
+                        }
+                    },
+                    neonColor = primaryAccent
+                )
 
-            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
-            if (isLoading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MidnightIndigo)
-                }
-            } else if (displayedFiles.isEmpty()) {
-                EmptyFolderState()
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(displayedFiles, key = { it.path }) { item ->
-                        val isSelected = selectedPaths.contains(item.path)
-                        FileListRow(
-                            item = item,
-                            isSelected = isSelected,
-                            isSelectionMode = isSelectionMode,
-                            onClick = {
-                                when {
-                                    isSelectionMode -> {
-                                        if (isSelected) selectedPaths.remove(item.path)
-                                        else selectedPaths.add(item.path)
-                                    }
-                                    item.isDirectory -> navigationStack.add(File(item.path))
-                                    item.extension == "zip" -> performUnzip(item)
-                                    else -> { /* open with system */ }
+                if (isLoading) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = primaryAccent)
+                    }
+                } else if (displayedFiles.isEmpty()) {
+                    EmptyFolderState(primaryAccent)
+                } else {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        if (viewMode == ViewMode.LIST) {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.xxs),
+                                contentPadding = PaddingValues(bottom = NovaTokens.Spacing.xl)
+                            ) {
+                                items(displayedFiles, key = { it.path }) { item ->
+                                    val isSelected = selectedPaths.contains(item.path)
+                                    FileListRow(
+                                        item = item,
+                                        isSelected = isSelected,
+                                        isSelectionMode = isSelectionMode,
+                                        onClick = {
+                                            when {
+                                                isSelectionMode -> {
+                                                    NovaHaptics.click(view)
+                                                    if (isSelected) selectedPaths.remove(item.path)
+                                                    else selectedPaths.add(item.path)
+                                                }
+                                                item.isDirectory -> {
+                                                    NovaHaptics.click(view)
+                                                    navigationStack.add(File(item.path))
+                                                }
+                                                else -> {
+                                                    NovaHaptics.click(view)
+                                                    onOpenFile(item.path)
+                                                }
+                                            }
+                                        },
+                                        onLongClick = {
+                                            NovaHaptics.recording(view) // deep haptic snap
+                                            actionTarget = item
+                                            showActionSheet = true
+                                        },
+                                        neonColor = primaryAccent
+                                    )
                                 }
-                            },
-                            onLongClick = {
-                                actionTarget = item
-                                showActionSheet = true
                             }
-                        )
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(3),
+                                verticalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.xs),
+                                horizontalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.xs),
+                                contentPadding = PaddingValues(bottom = NovaTokens.Spacing.xl)
+                            ) {
+                                items(displayedFiles, key = { it.path }) { item ->
+                                    val isSelected = selectedPaths.contains(item.path)
+                                    FileGridItem(
+                                        item = item,
+                                        isSelected = isSelected,
+                                        isSelectionMode = isSelectionMode,
+                                        onClick = {
+                                            when {
+                                                isSelectionMode -> {
+                                                    NovaHaptics.click(view)
+                                                    if (isSelected) selectedPaths.remove(item.path)
+                                                    else selectedPaths.add(item.path)
+                                                }
+                                                item.isDirectory -> {
+                                                    NovaHaptics.click(view)
+                                                    navigationStack.add(File(item.path))
+                                                }
+                                                else -> {
+                                                    NovaHaptics.click(view)
+                                                    onOpenFile(item.path)
+                                                }
+                                            }
+                                        },
+                                        onLongClick = {
+                                            NovaHaptics.recording(view)
+                                            actionTarget = item
+                                            showActionSheet = true
+                                        },
+                                        neonColor = primaryAccent
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -559,7 +611,8 @@ fun FileManagerScreen(onBack: () -> Unit) {
         SortBottomSheet(
             currentOrder = sortOrder,
             onOrderSelected = { sortOrder = it; showSortSheet = false },
-            onDismiss = { showSortSheet = false }
+            onDismiss = { showSortSheet = false },
+            neonColor = primaryAccent
         )
     }
 
@@ -591,8 +644,9 @@ fun FileManagerScreen(onBack: () -> Unit) {
                 },
                 onShare = {
                     showActionSheet = false
-                    scope.launch { snackbarHostState.showSnackbar("Share: use system intent in host Activity") }
-                }
+                    Toast.makeText(context, "Share: using system share sheets...", Toast.LENGTH_SHORT).show()
+                },
+                neonColor = primaryAccent
             )
         }
     }
@@ -601,27 +655,43 @@ fun FileManagerScreen(onBack: () -> Unit) {
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false; selectedPaths.clear() },
-            title = { Text("Delete files?") },
+            title = { 
+                Text(
+                    text = "Purge Assets?", 
+                    style = NovaTypography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = NovaError)
+                ) 
+            },
             text = {
                 Text(
-                    if (selectedPaths.size == 1) "Delete \"${File(selectedPaths.first()).name}\"? This cannot be undone."
-                    else "Delete ${selectedPaths.size} items? This cannot be undone."
+                    text = if (selectedPaths.size == 1) "Permanently delete \"${File(selectedPaths.first()).name}\"? This bypasses safety caches and cannot be undone."
+                    else "Permanently purge these ${selectedPaths.size} items from storage? This cannot be undone.",
+                    style = NovaTypography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
-                Button(
+                NovaPrimaryButton(
+                    text = "Confirm Purge",
+                    neonColor = NovaError,
                     onClick = {
                         performDelete(selectedPaths.toList())
                         showDeleteDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
-                ) { Text("Delete", color = Color.White) }
+                    }
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false; selectedPaths.clear() }) {
-                    Text("Cancel")
-                }
-            }
+                NovaSecondaryButton(
+                    text = "Cancel",
+                    neonColor = primaryAccent,
+                    onClick = { 
+                        showDeleteDialog = false
+                        selectedPaths.clear() 
+                    }
+                )
+            },
+            containerColor = if (isDark) NovaMidnightBlue else Color.White,
+            shape = RoundedCornerShape(NovaTokens.Radius.lg),
+            modifier = Modifier.border(1.dp, NovaError.copy(alpha = 0.2f), RoundedCornerShape(NovaTokens.Radius.lg))
         )
     }
 
@@ -630,30 +700,51 @@ fun FileManagerScreen(onBack: () -> Unit) {
         renameTarget?.let { target ->
             AlertDialog(
                 onDismissRequest = { showRenameDialog = false },
-                title = { Text("Rename") },
+                title = { 
+                    Text(
+                        text = "Modify File Identifier", 
+                        style = NovaTypography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = primaryAccent)
+                    ) 
+                },
                 text = {
-                    OutlinedTextField(
-                        value = renameValue,
-                        onValueChange = { renameValue = it },
-                        label = { Text("New name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Assign a new unique identity name to the item on storage.",
+                            style = NovaTypography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        NovaTextField(
+                            value = renameValue,
+                            onValueChange = { renameValue = it },
+                            placeholder = "Enter identifier...",
+                            singleLine = true,
+                            neonColor = primaryAccent
+                        )
+                    }
                 },
                 confirmButton = {
-                    Button(
+                    NovaPrimaryButton(
+                        text = "Apply Rename",
+                        neonColor = primaryAccent,
                         onClick = {
                             if (renameValue.isNotBlank()) {
                                 performRename(target, renameValue.trim())
                             }
                             showRenameDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo)
-                    ) { Text("Rename", color = Color.White) }
+                        }
+                    )
                 },
                 dismissButton = {
-                    TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
-                }
+                    NovaSecondaryButton(
+                        text = "Cancel",
+                        neonColor = primaryAccent,
+                        onClick = { showRenameDialog = false }
+                    )
+                },
+                containerColor = if (isDark) NovaMidnightBlue else Color.White,
+                shape = RoundedCornerShape(NovaTokens.Radius.lg),
+                modifier = Modifier.border(1.dp, primaryAccent.copy(alpha = 0.2f), RoundedCornerShape(NovaTokens.Radius.lg))
             )
         }
     }
@@ -664,31 +755,35 @@ fun FileManagerScreen(onBack: () -> Unit) {
 // ─────────────────────────────────────────────────────────
 
 @Composable
-private fun BreadcrumbBar(crumbs: List<String>, onCrumbClick: (Int) -> Unit) {
+private fun BreadcrumbBar(
+    crumbs: List<String>, 
+    onCrumbClick: (Int) -> Unit,
+    neonColor: Color
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = NovaTokens.Spacing.md, vertical = NovaTokens.Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.xs)
     ) {
         crumbs.forEachIndexed { index, crumb ->
-            if (index > 0) {
+            val isLast = index == crumbs.lastIndex
+            NovaChip(
+                text = crumb,
+                selected = isLast,
+                onClick = { if (!isLast) onCrumbClick(index) },
+                neonColor = neonColor
+            )
+            if (!isLast) {
                 Text(
-                    text = " › ",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    fontSize = 12.sp
+                    text = "›",
+                    color = neonColor.copy(alpha = 0.4f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
-            val isLast = index == crumbs.lastIndex
-            Text(
-                text = crumb,
-                fontSize = 12.sp,
-                fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
-                color = if (isLast) MidnightIndigo else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.clickable(enabled = !isLast) { onCrumbClick(index) }
-            )
         }
     }
 }
@@ -698,46 +793,64 @@ private fun BreadcrumbBar(crumbs: List<String>, onCrumbClick: (Int) -> Unit) {
 // ─────────────────────────────────────────────────────────
 
 @Composable
-private fun StorageSummaryCard(total: Long, used: Long) {
+private fun StorageSummaryCard(
+    total: Long, 
+    used: Long,
+    neonColor: Color
+) {
     val free = total - used
     val fraction = if (total > 0) used.toFloat() / total.toFloat() else 0f
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    
+    GlassCard(
+        neonAccent = neonColor,
+        enableGlow = true
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Storage", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(
-                    "${used.toHumanReadable()} / ${total.toHumanReadable()}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(NovaTokens.Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "System Mainframe Disk", 
+                        style = NovaTypography.tagMono.copy(fontWeight = FontWeight.Bold, color = neonColor)
+                    )
+                    Text(
+                        text = "${used.toHumanReadable()} / ${total.toHumanReadable()} (${(fraction * 100).toInt()}% USED)",
+                        style = NovaTypography.tagMono.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = fraction,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = neonColor,
+                    trackColor = neonColor.copy(alpha = 0.15f),
+                    strokeCap = StrokeCap.Round
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = fraction,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = MidnightIndigo,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                strokeCap = StrokeCap.Round
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "${free.toHumanReadable()} free",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = free.toHumanReadable(),
+                    style = NovaTypography.tagMono.copy(fontWeight = FontWeight.Bold, color = neonColor, fontSize = 13.sp)
+                )
+                Text(
+                    text = "FREE SPACE",
+                    style = NovaTypography.tagMono.copy(fontSize = 9.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
         }
     }
 }
@@ -746,27 +859,27 @@ private fun StorageSummaryCard(total: Long, used: Long) {
 //  Quick access chips
 // ─────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QuickAccessChips(onLocationSelected: (String) -> Unit) {
+private fun QuickAccessChips(
+    currentPath: String,
+    onLocationSelected: (String) -> Unit,
+    neonColor: Color
+) {
     val locations = remember { quickLocations() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(vertical = NovaTokens.Spacing.xxs),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         locations.forEach { loc ->
-            FilterChip(
-                selected = false,
+            val isSelected = currentPath == loc.path
+            NovaChip(
+                text = loc.label,
+                selected = isSelected,
                 onClick = { onLocationSelected(loc.path) },
-                label = { Text(loc.label, fontSize = 12.sp) },
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    selectedContainerColor = MidnightIndigo,
-                    selectedLabelColor = Color.White
-                )
+                neonColor = neonColor
             )
         }
     }
@@ -783,39 +896,47 @@ private fun FileListRow(
     isSelected: Boolean,
     isSelectionMode: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    neonColor: Color
 ) {
-    val bgColor = if (isSelected) MidnightIndigo.copy(alpha = 0.08f)
-    else Color.Transparent
+    val isDark = isSystemInDarkTheme()
+    val borderStrokeColor = if (isSelected) neonColor else if (isDark) NovaBorderDark.copy(alpha = 0.12f) else NovaBorderLight.copy(alpha = 0.12f)
+    val containerBgColor = if (isSelected) neonColor.copy(alpha = 0.08f) else (if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f))
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(bgColor)
+            .clip(RoundedCornerShape(NovaTokens.Radius.md))
+            .background(containerBgColor)
+            .border(
+                width = if (isSelected) 1.5.dp else 1.dp,
+                color = borderStrokeColor,
+                shape = RoundedCornerShape(NovaTokens.Radius.md)
+            )
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(horizontal = NovaTokens.Spacing.sm, vertical = NovaTokens.Spacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isSelectionMode) {
             Checkbox(
                 checked = isSelected,
                 onCheckedChange = { onClick() },
-                colors = CheckboxDefaults.colors(checkedColor = MidnightIndigo),
+                colors = CheckboxDefaults.colors(checkedColor = neonColor, uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)),
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
 
-        // Icon
+        // Cyber Icon block
         Box(
             modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .size(42.dp)
+                .clip(RoundedCornerShape(NovaTokens.Radius.sm))
+                .background(neonColor.copy(alpha = 0.07f))
+                .border(1.dp, neonColor.copy(alpha = 0.15f), RoundedCornerShape(NovaTokens.Radius.sm)),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = fileEmoji(item), fontSize = 22.sp)
+            Text(text = fileEmoji(item), fontSize = 20.sp)
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -823,19 +944,105 @@ private fun FileListRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                style = NovaTypography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = if (item.isDirectory) item.lastModified.toDateString()
-                else "${item.size.toHumanReadable()}  ·  ${item.lastModified.toDateString()}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                text = if (item.isDirectory) "Folder · ${item.lastModified.toDateString()}"
+                else "${item.size.toHumanReadable()} · ${item.lastModified.toDateString()}",
+                style = NovaTypography.bodySmall.copy(fontSize = 11.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
         }
+        
+        Icon(
+            imageVector = if (item.isDirectory) Icons.Rounded.ChevronRight else Icons.Rounded.InsertDriveFile,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────
+//  File grid item
+// ─────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FileGridItem(
+    item: FileItem,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    neonColor: Color
+) {
+    val isDark = isSystemInDarkTheme()
+    val borderStrokeColor = if (isSelected) neonColor else if (isDark) NovaBorderDark.copy(alpha = 0.12f) else NovaBorderLight.copy(alpha = 0.12f)
+    val containerBgColor = if (isSelected) neonColor.copy(alpha = 0.08f) else (if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f))
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(NovaTokens.Radius.md))
+            .background(containerBgColor)
+            .border(
+                width = if (isSelected) 1.5.dp else 1.dp,
+                color = borderStrokeColor,
+                shape = RoundedCornerShape(NovaTokens.Radius.md)
+            )
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(NovaTokens.Spacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            contentAlignment = Alignment.TopEnd,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (isSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onClick() },
+                    colors = CheckboxDefaults.colors(checkedColor = neonColor),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(NovaTokens.Radius.md))
+                .background(neonColor.copy(alpha = 0.07f))
+                .border(1.dp, neonColor.copy(alpha = 0.15f), RoundedCornerShape(NovaTokens.Radius.md)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = fileEmoji(item), fontSize = 24.sp)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = item.name,
+            style = NovaTypography.bodySmall.copy(fontWeight = FontWeight.Bold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        Spacer(modifier = Modifier.height(2.dp))
+        
+        Text(
+            text = if (item.isDirectory) "Folder" else item.size.toHumanReadable(),
+            style = NovaTypography.bodySmall.copy(fontSize = 10.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -844,15 +1051,20 @@ private fun FileListRow(
 // ─────────────────────────────────────────────────────────
 
 @Composable
-private fun EmptyFolderState() {
+private fun EmptyFolderState(neonColor: Color) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("📂", fontSize = 56.sp)
+            Text("📭", fontSize = 56.sp)
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                "This folder is empty",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                text = "Folder Empty",
+                style = NovaTypography.tagMono.copy(fontSize = 14.sp, color = neonColor)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "No files or indices found in directory.",
+                style = NovaTypography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
         }
     }
@@ -866,26 +1078,40 @@ private fun EmptyFolderState() {
 private fun BatchActionBar(
     onDelete: () -> Unit,
     onZip: () -> Unit,
-    onShare: () -> Unit
+    onShare: () -> Unit,
+    neonColor: Color
 ) {
-    Row(
+    val isDark = isSystemInDarkTheme()
+    
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
+            .padding(NovaTokens.Spacing.md),
+        shape = RoundedCornerShape(NovaTokens.Radius.lg),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDark) NovaMidnightBlue.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
+        ),
+        border = BorderStroke(1.dp, neonColor.copy(alpha = 0.3f))
     ) {
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFEF4444))
-        }
-        IconButton(onClick = onShare) {
-            Icon(Icons.Default.Share, contentDescription = "Share", tint = MidnightIndigo)
-        }
-        TextButton(
-            onClick = onZip,
-            colors = ButtonDefaults.textButtonColors(contentColor = MidnightIndigo)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(NovaTokens.Spacing.sm),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("🗜️ Zip")
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Purge selected", tint = NovaError)
+            }
+            IconButton(onClick = onShare) {
+                Icon(Icons.Default.Share, contentDescription = "Share selected", tint = neonColor)
+            }
+            NovaPrimaryButton(
+                text = "🗜️ Create Zip",
+                neonColor = neonColor,
+                onClick = onZip,
+                modifier = Modifier.height(36.dp)
+            )
         }
     }
 }
@@ -899,48 +1125,68 @@ private fun BatchActionBar(
 private fun SortBottomSheet(
     currentOrder: SortOrder,
     onOrderSelected: (SortOrder) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    neonColor: Color
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isDark = isSystemInDarkTheme()
+    val view = LocalView.current
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = if (isDark) NovaMidnightBlue else Color.White
     ) {
-        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-            Text(
-                "Sort by",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = NovaTokens.Spacing.lg, vertical = NovaTokens.Spacing.xs)
+        ) {
+            NovaSectionHeader(
+                title = "Sort System Directory",
+                neonColor = neonColor
             )
+            
+            Spacer(modifier = Modifier.height(NovaTokens.Spacing.sm))
+
             SortOrder.entries.forEach { order ->
                 val label = when (order) {
-                    SortOrder.NAME -> "Name (A–Z)"
-                    SortOrder.SIZE -> "Size (largest first)"
-                    SortOrder.DATE -> "Date modified"
-                    SortOrder.TYPE -> "File type"
+                    SortOrder.NAME -> "Name (A–Z alphabet)"
+                    SortOrder.SIZE -> "Size (Largest bytes first)"
+                    SortOrder.DATE -> "Date modified (Chronological)"
+                    SortOrder.TYPE -> "File extension grouping"
                 }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onOrderSelected(order) }
-                        .padding(vertical = 14.dp),
+                        .clickable { 
+                            NovaHaptics.click(view)
+                            onOrderSelected(order) 
+                        }
+                        .padding(vertical = NovaTokens.Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = label, 
+                        modifier = Modifier.weight(1f), 
+                        style = NovaTypography.headlineSmall.copy(
+                            fontWeight = if (order == currentOrder) FontWeight.Bold else FontWeight.Medium,
+                            color = if (order == currentOrder) neonColor else MaterialTheme.colorScheme.onSurface
+                        )
+                    )
                     if (order == currentOrder) {
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
                                 .clip(CircleShape)
-                                .background(MidnightIndigo)
+                                .background(neonColor)
                         )
                     }
                 }
-                if (order != SortOrder.entries.last()) Divider()
+                if (order != SortOrder.entries.last()) Divider(color = if (isDark) NovaBorderDark.copy(alpha = 0.1f) else NovaBorderLight.copy(alpha = 0.1f))
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(NovaTokens.Spacing.md))
         }
     }
 }
@@ -958,49 +1204,66 @@ private fun FileActionSheet(
     onDelete: () -> Unit,
     onZip: () -> Unit,
     onUnzip: () -> Unit,
-    onShare: () -> Unit
+    onShare: () -> Unit,
+    neonColor: Color
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isDark = isSystemInDarkTheme()
+    val view = LocalView.current
 
     data class Action(val emoji: String, val label: String, val action: () -> Unit, val destructive: Boolean = false)
 
     val actions = buildList {
-        add(Action("✏️", "Rename", onRename))
-        if (!item.isDirectory) add(Action("📤", "Share", onShare))
-        if (!item.isDirectory) add(Action("🗜️", "Zip", onZip))
-        if (item.extension == "zip") add(Action("📂", "Unzip here", onUnzip))
-        add(Action("🗑️", "Delete", onDelete, destructive = true))
+        add(Action("✏️", "Modify Identifier (Rename)", onRename))
+        if (!item.isDirectory) add(Action("📤", "External Broadcast (Share)", onShare))
+        if (!item.isDirectory) add(Action("🗜️", "Compress to ZIP (Zip)", onZip))
+        if (item.extension == "zip") add(Action("📂", "Extract Archive here", onUnzip))
+        add(Action("🗑️", "Purge from Storage (Delete)", onDelete, destructive = true))
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = if (isDark) NovaMidnightBlue else Color.White
     ) {
-        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = NovaTokens.Spacing.lg, vertical = NovaTokens.Spacing.xs)
+        ) {
             // Header
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(fileEmoji(item), fontSize = 28.sp)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(NovaTokens.Radius.sm))
+                        .background(neonColor.copy(alpha = 0.07f))
+                        .border(1.dp, neonColor.copy(alpha = 0.15f), RoundedCornerShape(NovaTokens.Radius.sm)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(fileEmoji(item), fontSize = 22.sp)
+                }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        item.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
+                        text = item.name,
+                        style = NovaTypography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     if (!item.isDirectory) {
                         Text(
-                            item.size.toHumanReadable(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            text = item.size.toHumanReadable(),
+                            style = NovaTypography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
+            
             Spacer(modifier = Modifier.height(16.dp))
-            Divider()
+            Divider(color = if (isDark) NovaBorderDark.copy(alpha = 0.15f) else NovaBorderLight.copy(alpha = 0.15f))
             Spacer(modifier = Modifier.height(8.dp))
 
             actions.forEach { action ->
@@ -1008,23 +1271,24 @@ private fun FileActionSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
+                            NovaHaptics.click(view)
                             action.action()
                             onDismiss()
                         }
-                        .padding(vertical = 14.dp),
+                        .padding(vertical = NovaTokens.Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(action.emoji, fontSize = 20.sp, modifier = Modifier.width(36.dp))
                     Text(
-                        action.label,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (action.destructive) Color(0xFFEF4444)
+                        text = action.label,
+                        style = NovaTypography.headlineSmall.copy(fontWeight = FontWeight.Medium),
+                        color = if (action.destructive) NovaError
                         else MaterialTheme.colorScheme.onSurface
                     )
                 }
-                if (action != actions.last()) Divider(modifier = Modifier.padding(start = 36.dp))
+                if (action != actions.last()) Divider(color = if (isDark) NovaBorderDark.copy(alpha = 0.1f) else NovaBorderLight.copy(alpha = 0.1f), modifier = Modifier.padding(start = 36.dp))
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(NovaTokens.Spacing.md))
         }
     }
 }

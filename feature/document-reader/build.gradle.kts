@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.anegan.feature.documentreader"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 29
@@ -33,4 +33,5 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.1")
     implementation(project(":core:designsystem"))
     implementation(project(":core:database"))
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 }

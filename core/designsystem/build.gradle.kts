@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.anegan.core.designsystem"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 29
@@ -32,4 +32,5 @@ dependencies {
     api("androidx.compose.ui:ui-graphics")
     api("androidx.compose.ui:ui-tooling-preview")
     api("androidx.compose.material3:material3")
+    api("androidx.compose.material:material-icons-extended")
 }

@@ -100,8 +100,8 @@ object FtpServer {
         var passiveServerSocket: ServerSocket? = null
         var passiveDataSocket: Socket? = null
         
-        // Expose directory Downloads/Anegan/
-        val baseDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Anegan").apply {
+        // Expose directory root /Anegan
+        val baseDir = File(Environment.getExternalStorageDirectory(), "Anegan").apply {
             if (!exists()) mkdirs()
         }
         var currentRelPath = "" // Relative to baseDir

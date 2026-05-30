@@ -17,7 +17,7 @@ import java.io.FileInputStream
 
 android {
     namespace = "com.anegan.app"
-    compileSdk = 34
+    compileSdk = 35
 
     val keystorePropertiesFile = rootProject.file("keystore.properties")
     val keystoreProperties = Properties()
@@ -28,9 +28,9 @@ android {
     defaultConfig {
         applicationId = "com.anegan.app"
         minSdk = 29
-        targetSdk = 34
-        versionCode = 18
-        versionName = "2.6.0"
+        targetSdk = 35
+        versionCode = 20
+        versionName = "3.1.0"
     }
 
     signingConfigs {
@@ -87,6 +87,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.compose.animation:animation")
     
     // Core Modules
     implementation(project(":core:designsystem"))
@@ -109,5 +111,10 @@ dependencies {
 
     // Secure Storage (Vault AES-256)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    
+    // Media3 dependencies for Background Audio Service
+    implementation("androidx.media3:media3-exoplayer:1.2.0")
+    implementation("androidx.media3:media3-session:1.2.0")
+    implementation("androidx.media3:media3-common:1.2.0")
 }
 

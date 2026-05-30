@@ -28,6 +28,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,14 +43,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
-import com.anegan.core.designsystem.theme.PureWhite
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.anegan.core.designsystem.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +60,7 @@ fun ColorPickerScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val scrollState = rememberScrollState()
 
     var activeTab by remember { mutableStateOf(0) } // 0: Spectra, 1: Image Analyzer
@@ -69,116 +73,89 @@ fun ColorPickerScreen(
         selectedColor = newColor
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp)
-            .verticalScroll(scrollState)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(48.dp)
-                    .semantics { contentDescription = "Go back to dashboard" }
-            ) {
-                Text(
-                    text = "←",
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                    color = MidnightIndigo
+    val isDark = isSystemInDarkTheme()
+
+    NovaBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                NovaTopBar(
+                    title = "Color Picker",
+                    onBack = {
+                        NovaHaptics.click(view)
+                        onBack()
+                    },
+                    neonAccent = NeonMagenta
                 )
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Color Picker",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo
-            )
-        }
+        ) { innerPadding ->
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Tab Selector Row
+                val tabs = listOf("Spectra (HSV)", "Image Analyzer")
+                NovaSegmentedControl(
+                    items = tabs,
+                    selectedIndex = activeTab,
+                    onIndexSelected = { index ->
+                        activeTab = index
+                    },
+                    neonColor = NeonMagenta
+                )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Tab Selector Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(6.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            val tabs = listOf("Spectra (HSV)", "Image Analyzer")
-            tabs.forEachIndexed { index, title ->
-                val isSelected = activeTab == index
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(if (isSelected) MidnightIndigo else Color.Transparent)
-                        .clickable { activeTab = index }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = title,
-                        color = if (isSelected) PureWhite else MidnightIndigo,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                // Tab content
+                when (activeTab) {
+                    0 -> SpectraTabContent(
+                        currentColor = selectedColor,
+                        onColorChange = { updateColor(it) }
+                    )
+                    1 -> ImageAnalyzerTabContent(
+                        onColorSelected = { updateColor(it) }
                     )
                 }
+
+                // Color Info Card inside premium GlassCard
+                ColorInfoCard(
+                    context = context,
+                    color = selectedColor,
+                    onSave = {
+                        val r = (selectedColor.red * 255).toInt()
+                        val g = (selectedColor.green * 255).toInt()
+                        val b = (selectedColor.blue * 255).toInt()
+                        val hex = String.format(java.util.Locale.ROOT, "#%02X%02X%02X", r, g, b)
+                        saveColor(context, hex)
+                        savedColorsList = getSavedColors(context)
+                        Toast.makeText(context, "Color saved to palette!", Toast.LENGTH_SHORT).show()
+                        NovaHaptics.success(view)
+                    }
+                )
+
+                // Saved Palettes inside GlassCard
+                SavedPalettesSection(
+                    context = context,
+                    savedColors = savedColorsList,
+                    onColorLoad = { hex ->
+                        try {
+                            val colorInt = android.graphics.Color.parseColor(hex)
+                            selectedColor = Color(colorInt)
+                            NovaHaptics.click(view)
+                        } catch (e: Exception) {
+                            // Ignore malformed hex colors
+                        }
+                    },
+                    onColorDelete = { hex ->
+                        deleteColor(context, hex)
+                        savedColorsList = getSavedColors(context)
+                        NovaHaptics.click(view)
+                    }
+                )
             }
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Tab content
-        when (activeTab) {
-            0 -> SpectraTabContent(
-                currentColor = selectedColor,
-                onColorChange = { updateColor(it) }
-            )
-            1 -> ImageAnalyzerTabContent(
-                onColorSelected = { updateColor(it) }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Color Info Card
-        ColorInfoCard(context = context, color = selectedColor, onSave = {
-            val r = (selectedColor.red * 255).toInt()
-            val g = (selectedColor.green * 255).toInt()
-            val b = (selectedColor.blue * 255).toInt()
-            val hex = String.format("#%02X%02X%02X", r, g, b)
-            saveColor(context, hex)
-            savedColorsList = getSavedColors(context)
-            Toast.makeText(context, "Color saved to palette!", Toast.LENGTH_SHORT).show()
-        })
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Saved Palettes
-        SavedPalettesSection(
-            context = context,
-            savedColors = savedColorsList,
-            onColorLoad = { hex ->
-                try {
-                    val colorInt = android.graphics.Color.parseColor(hex)
-                    selectedColor = Color(colorInt)
-                } catch (e: Exception) {
-                    // Ignore malformed hex colors
-                }
-            },
-            onColorDelete = { hex ->
-                deleteColor(context, hex)
-                savedColorsList = getSavedColors(context)
-            }
-        )
     }
 }
 
@@ -198,86 +175,118 @@ fun SpectraTabContent(
     var saturation by remember(initialHsv[1]) { mutableStateOf(initialHsv[1]) }
     var value by remember(initialHsv[2]) { mutableStateOf(initialHsv[2]) }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // Color Preview Box
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(currentColor)
-                .border(2.dp, Color.LightGray.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
-                .semantics { contentDescription = "Active color preview panel" }
-        )
+    val isDark = isSystemInDarkTheme()
 
-        Spacer(modifier = Modifier.height(24.dp))
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Color Preview Box wrapped in beautiful neon-glowing GlassCard
+        GlassCard(
+            modifier = Modifier.fillMaxWidth().height(120.dp),
+            neonAccent = currentColor,
+            enableGlow = true
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(currentColor)
+                    .semantics { contentDescription = "Active color preview panel" }
+            )
+        }
 
         // Hue Slider
-        Text(
-            text = "Hue: ${hue.toInt()}°",
-            fontWeight = FontWeight.Bold,
-            color = MidnightIndigo,
-            fontSize = 14.sp
-        )
-        Slider(
-            value = hue,
-            onValueChange = {
-                hue = it
-                onColorChange(Color.hsv(hue, saturation, value))
-            },
-            valueRange = 0f..360f,
-            colors = SliderDefaults.colors(
-                thumbColor = MidnightIndigo,
-                activeTrackColor = MidnightIndigo
-            ),
-            modifier = Modifier.semantics { contentDescription = "Hue rotation selector, active value ${hue.toInt()} degrees" }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Hue",
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDark) NovaFrostWhite else NovaDeepInk,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = "${hue.toInt()}°",
+                    fontFamily = JetBrainsMono,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonMagenta,
+                    fontSize = 13.sp
+                )
+            }
+            NovaSlider(
+                value = hue,
+                onValueChange = {
+                    hue = it
+                    onColorChange(Color.hsv(hue, saturation, value))
+                },
+                valueRange = 0f..360f,
+                neonColor = NeonMagenta
+            )
+        }
 
         // Saturation Slider
-        Text(
-            text = "Saturation: ${(saturation * 100).toInt()}%",
-            fontWeight = FontWeight.Bold,
-            color = MidnightIndigo,
-            fontSize = 14.sp
-        )
-        Slider(
-            value = saturation,
-            onValueChange = {
-                saturation = it
-                onColorChange(Color.hsv(hue, saturation, value))
-            },
-            valueRange = 0f..1f,
-            colors = SliderDefaults.colors(
-                thumbColor = MidnightIndigo,
-                activeTrackColor = MidnightIndigo
-            ),
-            modifier = Modifier.semantics { contentDescription = "Saturation slider, active value ${(saturation * 100).toInt()} percent" }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Saturation",
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDark) NovaFrostWhite else NovaDeepInk,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = "${(saturation * 100).toInt()}%",
+                    fontFamily = JetBrainsMono,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonMagenta,
+                    fontSize = 13.sp
+                )
+            }
+            NovaSlider(
+                value = saturation,
+                onValueChange = {
+                    saturation = it
+                    onColorChange(Color.hsv(hue, saturation, value))
+                },
+                valueRange = 0f..1f,
+                neonColor = NeonMagenta
+            )
+        }
 
         // Value (Brightness) Slider
-        Text(
-            text = "Value (Brightness): ${(value * 100).toInt()}%",
-            fontWeight = FontWeight.Bold,
-            color = MidnightIndigo,
-            fontSize = 14.sp
-        )
-        Slider(
-            value = value,
-            onValueChange = {
-                value = it
-                onColorChange(Color.hsv(hue, saturation, value))
-            },
-            valueRange = 0f..1f,
-            colors = SliderDefaults.colors(
-                thumbColor = MidnightIndigo,
-                activeTrackColor = MidnightIndigo
-            ),
-            modifier = Modifier.semantics { contentDescription = "Brightness value slider, active value ${(value * 100).toInt()} percent" }
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Value (Brightness)",
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDark) NovaFrostWhite else NovaDeepInk,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = "${(value * 100).toInt()}%",
+                    fontFamily = JetBrainsMono,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonMagenta,
+                    fontSize = 13.sp
+                )
+            }
+            NovaSlider(
+                value = value,
+                onValueChange = {
+                    value = it
+                    onColorChange(Color.hsv(hue, saturation, value))
+                },
+                valueRange = 0f..1f,
+                neonColor = NeonMagenta
+            )
+        }
     }
 }
 
@@ -286,6 +295,7 @@ fun ImageAnalyzerTabContent(
     onColorSelected: (Color) -> Unit
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var loadedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var indicatorOffset by remember { mutableStateOf(Offset(150f, 150f)) }
@@ -299,6 +309,7 @@ fun ImageAnalyzerTabContent(
             loadedBitmap = loadDownscaledBitmap(context, uri, 1024)
             // Reset indicator position to center
             indicatorOffset = Offset(150f, 150f)
+            NovaHaptics.click(view)
         }
     }
 
@@ -318,91 +329,103 @@ fun ImageAnalyzerTabContent(
         }
     }
 
+    val isDark = isSystemInDarkTheme()
+
     Column(modifier = Modifier.fillMaxWidth()) {
         if (loadedBitmap != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .onGloballyPositioned { coordinates ->
-                        canvasSize = Offset(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
-                    }
-                    .pointerInput(loadedBitmap) {
-                        detectTapGestures { offset ->
-                            indicatorOffset = offset
-                            samplePixelAt(offset)
-                        }
-                    }
-                    .pointerInput(loadedBitmap) {
-                        detectDragGestures { change, _ ->
-                            change.consume()
-                            indicatorOffset = change.position.coerceIn(canvasSize)
-                            samplePixelAt(indicatorOffset)
-                        }
-                    },
-                contentAlignment = Alignment.TopStart
-            ) {
-                Image(
-                    bitmap = loadedBitmap!!.asImageBitmap(),
-                    contentDescription = "Analyzed target photograph",
-                    modifier = Modifier.fillMaxSize()
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp),
+                    neonAccent = NeonMagenta,
+                    enableGlow = true
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onGloballyPositioned { coordinates ->
+                                canvasSize = Offset(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
+                            }
+                            .pointerInput(loadedBitmap) {
+                                detectTapGestures { offset ->
+                                    indicatorOffset = offset
+                                    samplePixelAt(offset)
+                                    NovaHaptics.click(view)
+                                }
+                            }
+                            .pointerInput(loadedBitmap) {
+                                detectDragGestures { change, _ ->
+                                    change.consume()
+                                    indicatorOffset = change.position.coerceIn(canvasSize)
+                                    samplePixelAt(indicatorOffset)
+                                }
+                            },
+                        contentAlignment = Alignment.TopStart
+                    ) {
+                        Image(
+                            bitmap = loadedBitmap!!.asImageBitmap(),
+                            contentDescription = "Analyzed target photograph",
+                            modifier = Modifier.fillMaxSize()
+                        )
 
-                // Drag indicator ring
-                val density = LocalDensity.current
-                val offsetDp = with(density) {
-                    IntOffset(
-                        (indicatorOffset.x - 15.dp.toPx()).toInt(),
-                        (indicatorOffset.y - 15.dp.toPx()).toInt()
-                    )
+                        // Drag indicator ring
+                        val density = LocalDensity.current
+                        val offsetDp = with(density) {
+                            IntOffset(
+                                (indicatorOffset.x - 15.dp.toPx()).toInt(),
+                                (indicatorOffset.y - 15.dp.toPx()).toInt()
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .offset { offsetDp }
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .border(3.dp, Color.White, CircleShape)
+                                .border(4.dp, NeonMagenta.copy(alpha = 0.5f), CircleShape)
+                        )
+                    }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .offset { offsetDp }
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .border(3.dp, Color.White, CircleShape)
-                        .border(4.dp, MidnightIndigo.copy(alpha = 0.5f), CircleShape)
+                NovaSecondaryButton(
+                    text = "Select Another Image",
+                    neonColor = NeonMagenta,
+                    onClick = { photoPickerLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { photoPickerLauncher.launch("image/*") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
-            ) {
-                Text("Select Another Image", fontWeight = FontWeight.Bold)
-            }
         } else {
-            Box(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(200.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .clickable { photoPickerLauncher.launch("image/*") }
-                    .semantics { contentDescription = "Tap to pick an image from photo library for offline color extraction" },
-                contentAlignment = Alignment.Center
+                    .clickable { photoPickerLauncher.launch("image/*") },
+                neonAccent = NeonMagenta,
+                enableGlow = false
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "📷",
-                        fontSize = 32.sp
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Tap to load photo & sample pixels",
-                        color = MidnightIndigo,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AddPhotoAlternate,
+                            contentDescription = null,
+                            tint = NeonMagenta.copy(alpha = 0.5f),
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Text(
+                            text = "Tap to load photo & sample pixels",
+                            color = NeonMagenta,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
         }
@@ -415,16 +438,17 @@ fun ColorInfoCard(
     color: Color,
     onSave: () -> Unit
 ) {
+    val view = LocalView.current
     val r = (color.red * 255).toInt()
     val g = (color.green * 255).toInt()
     val b = (color.blue * 255).toInt()
 
-    val hexString = String.format("#%02X%02X%02X", r, g, b)
+    val hexString = String.format(java.util.Locale.ROOT, "#%02X%02X%02X", r, g, b)
     val rgbString = "$r, $g, $b"
 
     val outHsl = FloatArray(3)
     androidx.core.graphics.ColorUtils.RGBToHSL(r, g, b, outHsl)
-    val hslString = String.format("%d°, %d%%, %d%%", outHsl[0].toInt(), (outHsl[1] * 100).toInt(), (outHsl[2] * 100).toInt())
+    val hslString = String.format(java.util.Locale.ROOT, "%d°, %d%%, %d%%", outHsl[0].toInt(), (outHsl[1] * 100).toInt(), (outHsl[2] * 100).toInt())
 
     fun copyToClipboard(label: String, text: String) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -433,14 +457,23 @@ fun ColorInfoCard(
         Toast.makeText(context, "$label copied to clipboard!", Toast.LENGTH_SHORT).show()
     }
 
-    Card(
+    val isDark = isSystemInDarkTheme()
+
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(24.dp)
+        neonAccent = NeonMagenta,
+        enableGlow = true
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text("Color Analysis", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Color Analysis",
+                color = Color.Gray,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
 
             // HEX Row
             Row(
@@ -450,17 +483,25 @@ fun ColorInfoCard(
             ) {
                 Column {
                     Text("Hex Code", color = Color.Gray, fontSize = 11.sp)
-                    Text(hexString, color = MidnightIndigo, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = hexString,
+                        color = NeonMagenta,
+                        fontFamily = JetBrainsMono,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                IconButton(
-                    onClick = { copyToClipboard("Hex Code", hexString) },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Text("Copy", color = MidnightIndigo, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
+                NovaSecondaryButton(
+                    text = "Copy",
+                    neonColor = NeonMagenta,
+                    onClick = {
+                        copyToClipboard("Hex Code", hexString)
+                        NovaHaptics.success(view)
+                    }
+                )
             }
 
-            Divider(color = Color.LightGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+            Divider(color = if (isDark) NovaBorderDark.copy(alpha = 0.2f) else NovaBorderLight.copy(alpha = 0.2f))
 
             // RGB Row
             Row(
@@ -470,17 +511,25 @@ fun ColorInfoCard(
             ) {
                 Column {
                     Text("RGB Format", color = Color.Gray, fontSize = 11.sp)
-                    Text(rgbString, color = MidnightIndigo, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = rgbString,
+                        color = if (isDark) NovaFrostWhite else NovaDeepInk,
+                        fontFamily = JetBrainsMono,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                IconButton(
-                    onClick = { copyToClipboard("RGB Format", rgbString) },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Text("Copy", color = MidnightIndigo, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
+                NovaSecondaryButton(
+                    text = "Copy",
+                    neonColor = NeonMagenta,
+                    onClick = {
+                        copyToClipboard("RGB Format", rgbString)
+                        NovaHaptics.success(view)
+                    }
+                )
             }
 
-            Divider(color = Color.LightGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+            Divider(color = if (isDark) NovaBorderDark.copy(alpha = 0.2f) else NovaBorderLight.copy(alpha = 0.2f))
 
             // HSL Row
             Row(
@@ -490,27 +539,32 @@ fun ColorInfoCard(
             ) {
                 Column {
                     Text("HSL Format", color = Color.Gray, fontSize = 11.sp)
-                    Text(hslString, color = MidnightIndigo, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = hslString,
+                        color = if (isDark) NovaFrostWhite else NovaDeepInk,
+                        fontFamily = JetBrainsMono,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                IconButton(
-                    onClick = { copyToClipboard("HSL Format", hslString) },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Text("Copy", color = MidnightIndigo, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
+                NovaSecondaryButton(
+                    text = "Copy",
+                    neonColor = NeonMagenta,
+                    onClick = {
+                        copyToClipboard("HSL Format", hslString)
+                        NovaHaptics.success(view)
+                    }
+                )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
+            NovaPrimaryButton(
+                text = "Save Color to Palette",
+                neonColor = NeonMagenta,
                 onClick = onSave,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
-            ) {
-                Text("Save Color to Palette", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -522,13 +576,20 @@ fun SavedPalettesSection(
     onColorLoad: (String) -> Unit,
     onColorDelete: (String) -> Unit
 ) {
-    Card(
+    val view = LocalView.current
+    val isDark = isSystemInDarkTheme()
+
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(24.dp)
+        neonAccent = Color.Transparent
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text("Saved Palettes", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = "Saved Palettes",
+                color = Color.Gray,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(modifier = Modifier.height(16.dp))
 
             if (savedColors.isEmpty()) {
@@ -538,7 +599,7 @@ fun SavedPalettesSection(
                     fontSize = 13.sp
                 )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     savedColors.forEach { hex ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -562,23 +623,31 @@ fun SavedPalettesSection(
                                         .size(36.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(Color(colorInt))
-                                        .border(1.dp, Color.LightGray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                        .border(1.dp, if (isDark) NovaBorderDark.copy(alpha = 0.3f) else NovaBorderLight.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = hex,
-                                    color = MidnightIndigo,
+                                    color = if (isDark) NovaFrostWhite else NovaDeepInk,
+                                    fontFamily = JetBrainsMono,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
                             }
                             IconButton(
-                                onClick = { onColorDelete(hex) },
+                                onClick = {
+                                    onColorDelete(hex)
+                                },
                                 modifier = Modifier
                                     .size(48.dp)
                                     .semantics { contentDescription = "Delete hex swatch $hex from palette" }
                             ) {
-                                Text("✕", color = Color.Red, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Icon(
+                                    imageVector = Icons.Rounded.Delete,
+                                    contentDescription = "Delete swatch",
+                                    tint = Color(0xFFF44336),
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
                     }

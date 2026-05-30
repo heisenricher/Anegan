@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.anegan.feature.saver"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 29
@@ -31,6 +31,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.8.1")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation(project(":core:designsystem"))
     implementation(project(":core:database"))
 }
+

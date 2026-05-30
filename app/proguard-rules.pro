@@ -34,3 +34,24 @@
 # WorkManager
 -keep class androidx.work.** { *; }
 -dontwarn androidx.work.**
+
+# exp4j calculator engine
+-keep class net.objecthunter.exp4j.** { *; }
+-dontwarn net.objecthunter.exp4j.**
+
+# Retrofit (currency API)
+-keep class retrofit2.** { *; }
+-dontwarn retrofit2.**
+-keep class okhttp3.** { *; }
+-dontwarn okhttp3.**
+
+# Markwon (markdown rendering)
+-keep class io.noties.markwon.** { *; }
+-dontwarn io.noties.markwon.**
+
+# Compose stability
+-keep class androidx.compose.** { *; }
+
+# JCIFS SMB (smb-share module)  
+-keep class jcifs.** { *; }
+-dontwarn jcifs.**

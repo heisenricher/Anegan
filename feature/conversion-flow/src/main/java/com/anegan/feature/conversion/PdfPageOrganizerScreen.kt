@@ -36,7 +36,6 @@ import com.anegan.core.conversion.PdfPageManager
 import com.anegan.core.conversion.StorageManager
 import com.anegan.core.database.DatabaseProvider
 import com.anegan.core.database.ConversionHistoryEntity
-import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -135,7 +134,7 @@ fun PdfPageOrganizerScreen(
             Text(
                 text = "← ",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .clickable { onBack() }
                     .padding(end = 12.dp)
@@ -143,7 +142,7 @@ fun PdfPageOrganizerScreen(
             Text(
                 text = "PDF Page Organizer",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo
+                color = MaterialTheme.colorScheme.primary
             )
         }
 
@@ -161,12 +160,12 @@ fun PdfPageOrganizerScreen(
         ) {
             if (selectedFileName != null) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
-                    Text(selectedFileName!!, color = MidnightIndigo, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(selectedFileName!!, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     val sizeMb = (selectedFileSize ?: 0L) / (1024f * 1024f)
                     Text(String.format("%.2f MB", sizeMb), color = Color.Gray, fontSize = 13.sp)
                 }
             } else {
-                Text("Tap to Select PDF Document", color = MidnightIndigo, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Text("Tap to Select PDF Document", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             }
         }
 
@@ -176,7 +175,7 @@ fun PdfPageOrganizerScreen(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = MidnightIndigo)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         }
 
@@ -189,11 +188,11 @@ fun PdfPageOrganizerScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Document Reorganized!", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo, fontWeight = FontWeight.Bold)
+                    Text("Document Reorganized!", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Saved to Anegan/Documents folder.", color = Color.Gray, fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(file.name, color = MidnightIndigo, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(file.name, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -240,14 +239,14 @@ fun PdfPageOrganizerScreen(
                                             .background(Color(0xFFE2E8F0)),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp), color = MidnightIndigo)
+                                        CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.width(16.dp))
 
                                 Column {
-                                    Text("Page ${listIndex + 1}", color = MidnightIndigo, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Text("Page ${listIndex + 1}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                     Text("Source index: ${originalIndex + 1}", color = Color.Gray, fontSize = 11.sp)
                                 }
                             }
@@ -263,7 +262,7 @@ fun PdfPageOrganizerScreen(
                                         }
                                     },
                                     enabled = listIndex > 0,
-                                    colors = ButtonDefaults.textButtonColors(contentColor = MidnightIndigo)
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                                 ) {
                                     Text("▲", fontSize = 12.sp)
                                 }
@@ -277,7 +276,7 @@ fun PdfPageOrganizerScreen(
                                         }
                                     },
                                     enabled = listIndex < pageIndices.size - 1,
-                                    colors = ButtonDefaults.textButtonColors(contentColor = MidnightIndigo)
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                                 ) {
                                     Text("▼", fontSize = 12.sp)
                                 }
@@ -351,7 +350,7 @@ fun PdfPageOrganizerScreen(
                     .fillMaxWidth()
                     .height(56.dp),
                 enabled = !isProcessing,
-                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = PureWhite)
             ) {
                 Text("Reorganize & Save PDF", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }

@@ -11,65 +11,37 @@ package com.anegan.feature.filemanager
 
 import android.os.Environment
 import android.os.StatFs
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
+import com.anegan.core.designsystem.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -160,6 +132,8 @@ private fun scanDirectory(root: File): ScanResult {
 @Composable
 fun StorageAnalyzerScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val view = LocalView.current
+    val isDark = isSystemInDarkTheme()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Storage stats
@@ -181,8 +155,9 @@ fun StorageAnalyzerScreen(onBack: () -> Unit) {
     val usedFraction = if (totalBytes > 0) usedBytes.toFloat() / totalBytes.toFloat() else 0f
     val animatedProgress = remember { Animatable(0f) }
 
+    val primaryAccent = NeonCyan // Cyan for files / storage analysis
+
     LaunchedEffect(Unit) {
-        // Kick off scan
         val result = withContext(Dispatchers.IO) {
             scanDirectory(Environment.getExternalStorageDirectory())
         }
@@ -190,118 +165,137 @@ fun StorageAnalyzerScreen(onBack: () -> Unit) {
         largeFilesState.clear()
         largeFilesState.addAll(result.largeFiles)
         isScanning = false
-        // Animate ring after data loads
+        // Animate progress ring
         animatedProgress.animateTo(
             targetValue = usedFraction,
             animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing)
         )
     }
 
+    BackHandler {
+        onBack()
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Storage Analyzer",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            NovaTopBar(
+                title = "Disk Diagnostics",
+                onBack = onBack,
+                neonAccent = primaryAccent
             )
         }
     ) { innerPadding ->
-        if (isScanning) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = MidnightIndigo, modifier = Modifier.size(56.dp))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Scanning storage…", style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // ── Storage ring ──────────────────────────────────────────
-                item {
-                    StorageRingCard(
-                        totalBytes = totalBytes,
-                        usedBytes = usedBytes,
-                        freeBytes = freeBytes,
-                        animatedProgress = animatedProgress.value
-                    )
-                }
-
-                // ── Category breakdown ─────────────────────────────────────
-                item {
-                    scanResult?.let { result ->
-                        val total = (result.images + result.videos + result.audio +
-                                result.documents + result.apks + result.other).coerceAtLeast(1L)
-                        val categories = listOf(
-                            StorageCategory("Images", "🖼️", result.images, Color(0xFF3B82F6)),
-                            StorageCategory("Videos", "🎬", result.videos, Color(0xFF8B5CF6)),
-                            StorageCategory("Audio", "🎵", result.audio, Color(0xFF10B981)),
-                            StorageCategory("Documents", "📄", result.documents, Color(0xFFF59E0B)),
-                            StorageCategory("APKs", "📦", result.apks, Color(0xFFEF4444)),
-                            StorageCategory("Other", "📁", result.other, Color(0xFF6B7280))
-                        )
-                        CategoryBreakdownCard(categories = categories, total = total)
-                    }
-                }
-
-                // ── Large files section ────────────────────────────────────
-                if (largeFilesState.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Large Files  (> 50 MB)",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MidnightIndigo
-                        )
-                    }
-                    items(largeFilesState, key = { it.path }) { lf ->
-                        LargeFileRow(
-                            largeFile = lf,
-                            onDelete = {
-                                deleteTarget = lf
-                                showDeleteDialog = true
-                            }
-                        )
-                    }
-                } else {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        NovaBackground {
+            if (isScanning) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    GlassCard(
+                        neonAccent = primaryAccent,
+                        enableGlow = true
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(NovaTokens.Spacing.xl),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp),
-                                contentAlignment = Alignment.Center
+                            CircularProgressIndicator(
+                                color = primaryAccent, 
+                                modifier = Modifier.size(56.dp),
+                                strokeWidth = 4.dp
+                            )
+                            Spacer(modifier = Modifier.height(NovaTokens.Spacing.md))
+                            Text(
+                                text = "Traversing directory clusters...", 
+                                style = NovaTypography.tagMono.copy(color = primaryAccent)
+                            )
+                            Spacer(modifier = Modifier.height(NovaTokens.Spacing.xxs))
+                            Text(
+                                text = "Indexing local disk sector sizes offline", 
+                                style = NovaTypography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    contentPadding = PaddingValues(horizontal = NovaTokens.Spacing.md, vertical = NovaTokens.Spacing.xs),
+                    verticalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.md)
+                ) {
+                    // ── Storage Ring Diagnostic Card ──────────────────────────────────────────
+                    item {
+                        StorageRingCard(
+                            totalBytes = totalBytes,
+                            usedBytes = usedBytes,
+                            freeBytes = freeBytes,
+                            animatedProgress = animatedProgress.value,
+                            neonColor = primaryAccent
+                        )
+                    }
+
+                    // ── Category breakdown ─────────────────────────────────────
+                    item {
+                        scanResult?.let { result ->
+                            val total = (result.images + result.videos + result.audio +
+                                    result.documents + result.apks + result.other).coerceAtLeast(1L)
+                            
+                            // Highly themed categories mapping to exact V3.2 palette coordinates
+                            val categories = listOf(
+                                StorageCategory("Images / DCIM Assets", "🖼️", result.images, NeonBlue),
+                                StorageCategory("Videos / Movies Content", "🎬", result.videos, NeonMagenta),
+                                StorageCategory("Audio / Music Tracks", "🎵", result.audio, NeonGold),
+                                StorageCategory("Documents / Raw Data", "📄", result.documents, NeonCyan),
+                                StorageCategory("APK Packages / Extracted", "📦", result.apks, NeonLime),
+                                StorageCategory("Unmapped Sectors / Other", "📁", result.other, if (isDark) NovaBorderDark else NovaBorderLight)
+                            )
+                            CategoryBreakdownCard(categories = categories, total = total, neonColor = primaryAccent)
+                        }
+                    }
+
+                    // ── Large files section ────────────────────────────────────
+                    if (largeFilesState.isNotEmpty()) {
+                        item {
+                            NovaSectionHeader(
+                                title = "Identified Large Files (> 50 MB)",
+                                neonColor = NovaError
+                            )
+                        }
+                        items(largeFilesState, key = { it.path }) { lf ->
+                            LargeFileRow(
+                                largeFile = lf,
+                                onDelete = {
+                                    NovaHaptics.warning(view)
+                                    deleteTarget = lf
+                                    showDeleteDialog = true
+                                },
+                                neonColor = primaryAccent
+                            )
+                        }
+                    } else {
+                        item {
+                            GlassCard(
+                                neonAccent = primaryAccent,
+                                enableGlow = true
                             ) {
-                                Text(
-                                    "✅ No large files found (> 50 MB)",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "✅ Storage optimized: No heavy files found (> 50 MB)",
+                                        style = NovaTypography.tagMono.copy(
+                                            color = primaryAccent,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
@@ -315,33 +309,56 @@ fun StorageAnalyzerScreen(onBack: () -> Unit) {
         deleteTarget?.let { lf ->
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false; deleteTarget = null },
-                title = { Text("Delete file?") },
+                title = { 
+                    Text(
+                        text = "Destroy Large File Asset?", 
+                        style = NovaTypography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = NovaError)
+                    ) 
+                },
                 text = {
-                    Text("Delete \"${lf.name}\" (${lf.sizeBytes.toHumanReadable()})? This cannot be undone.")
+                    Text(
+                        text = "Permanently purge \"${lf.name}\" (${lf.sizeBytes.toHumanReadable()}) from internal storage? This bypasses all recovery grids and cannot be undone.",
+                        style = NovaTypography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 },
                 confirmButton = {
-                    Button(
+                    NovaPrimaryButton(
+                        text = "Confirm Destruction",
+                        neonColor = NovaError,
                         onClick = {
                             scope.launch {
                                 val ok = withContext(Dispatchers.IO) {
                                     runCatching { File(lf.path).delete() }.getOrDefault(false)
                                 }
-                                if (ok) largeFilesState.remove(lf)
+                                if (ok) {
+                                    largeFilesState.remove(lf)
+                                    NovaHaptics.success(view)
+                                } else {
+                                    NovaHaptics.warning(view)
+                                }
                                 showDeleteDialog = false
                                 deleteTarget = null
                                 snackbarHostState.showSnackbar(
-                                    if (ok) "Deleted ${lf.name}" else "Could not delete file"
+                                    if (ok) "Asset successfully purged from storage" else "Error: Asset delete operation blocked"
                                 )
                             }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
-                    ) { Text("Delete", color = Color.White) }
+                        }
+                    )
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = false; deleteTarget = null }) {
-                        Text("Cancel")
-                    }
-                }
+                    NovaSecondaryButton(
+                        text = "Cancel",
+                        neonColor = primaryAccent,
+                        onClick = { 
+                            showDeleteDialog = false
+                            deleteTarget = null 
+                        }
+                    )
+                },
+                containerColor = if (isDark) NovaMidnightBlue else Color.White,
+                shape = RoundedCornerShape(NovaTokens.Radius.lg),
+                modifier = Modifier.border(1.dp, NovaError.copy(alpha = 0.2f), RoundedCornerShape(NovaTokens.Radius.lg))
             )
         }
     }
@@ -356,76 +373,96 @@ private fun StorageRingCard(
     totalBytes: Long,
     usedBytes: Long,
     freeBytes: Long,
-    animatedProgress: Float
+    animatedProgress: Float,
+    neonColor: Color
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    val isDark = isSystemInDarkTheme()
+    
+    GlassCard(
+        neonAccent = neonColor,
+        enableGlow = true
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(NovaTokens.Spacing.md),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Internal Storage",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                text = "Disk Diagnostics Core",
+                style = NovaTypography.tagMono.copy(fontWeight = FontWeight.Bold, color = neonColor)
             )
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(NovaTokens.Spacing.lg))
 
-            // Circular progress ring
+            // Circular progress ring styled as high-tech futuristic holographic core
             Box(contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
                     progress = 1f,
                     modifier = Modifier.size(160.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    strokeWidth = 14.dp,
+                    color = neonColor.copy(alpha = 0.12f),
+                    strokeWidth = 12.dp,
                     strokeCap = StrokeCap.Round
                 )
                 CircularProgressIndicator(
                     progress = animatedProgress,
                     modifier = Modifier.size(160.dp),
-                    color = MidnightIndigo,
-                    strokeWidth = 14.dp,
+                    color = neonColor,
+                    strokeWidth = 12.dp,
                     strokeCap = StrokeCap.Round
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        "${(animatedProgress * 100).toInt()}%",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MidnightIndigo
+                        text = "${(animatedProgress * 100).toInt()}%",
+                        style = NovaTypography.displayLarge.copy(
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily.Monospace,
+                            color = neonColor
+                        )
                     )
-                    Text("used", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        text = "CORE LOADED", 
+                        style = NovaTypography.tagMono.copy(fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(NovaTokens.Spacing.lg))
 
-            // Stats row
+            // Stats row (Monospace JetBrains Mono values)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                StorageStat(label = "Total", value = totalBytes.toHumanReadable(), color = MaterialTheme.colorScheme.onSurface)
+                StorageStat(
+                    label = "TOTAL SPACE", 
+                    value = totalBytes.toHumanReadable(), 
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Box(
                     modifier = Modifier
                         .width(1.dp)
-                        .height(40.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant)
+                        .height(30.dp)
+                        .background(if (isDark) NovaBorderDark.copy(alpha = 0.2f) else NovaBorderLight.copy(alpha = 0.2f))
                 )
-                StorageStat(label = "Used", value = usedBytes.toHumanReadable(), color = MidnightIndigo)
+                StorageStat(
+                    label = "SECTORS USED", 
+                    value = usedBytes.toHumanReadable(), 
+                    color = neonColor
+                )
                 Box(
                     modifier = Modifier
                         .width(1.dp)
-                        .height(40.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant)
+                        .height(30.dp)
+                        .background(if (isDark) NovaBorderDark.copy(alpha = 0.2f) else NovaBorderLight.copy(alpha = 0.2f))
                 )
-                StorageStat(label = "Free", value = freeBytes.toHumanReadable(), color = Color(0xFF10B981))
+                StorageStat(
+                    label = "FREE MEMORY", 
+                    value = freeBytes.toHumanReadable(), 
+                    color = NeonLime
+                )
             }
         }
     }
@@ -434,8 +471,15 @@ private fun StorageRingCard(
 @Composable
 private fun StorageStat(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = color)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+        Text(
+            text = value, 
+            style = NovaTypography.tagMono.copy(fontWeight = FontWeight.Bold, color = color, fontSize = 12.sp)
+        )
+        Text(
+            text = label, 
+            style = NovaTypography.tagMono.copy(fontSize = 8.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        )
     }
 }
 
@@ -444,23 +488,26 @@ private fun StorageStat(label: String, value: String, color: Color) {
 // ─────────────────────────────────────────────────────────
 
 @Composable
-private fun CategoryBreakdownCard(categories: List<StorageCategory>, total: Long) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+private fun CategoryBreakdownCard(
+    categories: List<StorageCategory>, 
+    total: Long,
+    neonColor: Color
+) {
+    GlassCard(
+        neonAccent = neonColor,
+        enableGlow = false
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                "By Category",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
+        Column(modifier = Modifier.padding(NovaTokens.Spacing.md)) {
+            NovaSectionHeader(
+                title = "Sector Allocation Breakdown",
+                neonColor = neonColor
             )
+            Spacer(modifier = Modifier.height(NovaTokens.Spacing.sm))
             categories.forEach { cat ->
                 CategoryRow(category = cat, total = total)
-                Spacer(modifier = Modifier.height(12.dp))
+                if (cat != categories.last()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
             }
         }
     }
@@ -476,14 +523,17 @@ private fun CategoryRow(category: StorageCategory, total: Long) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(category.emoji, fontSize = 18.sp)
+                Text(category.emoji, fontSize = 16.sp)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(category.name, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = category.name, 
+                    style = NovaTypography.headlineSmall.copy(fontWeight = FontWeight.Medium)
+                )
             }
             Text(
-                category.sizeBytes.toHumanReadable(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                text = category.sizeBytes.toHumanReadable(),
+                style = NovaTypography.tagMono.copy(fontSize = 11.sp, fontFamily = FontFamily.Monospace),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
@@ -494,7 +544,7 @@ private fun CategoryRow(category: StorageCategory, total: Long) {
                 .height(6.dp)
                 .clip(RoundedCornerShape(3.dp)),
             color = category.color,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            trackColor = category.color.copy(alpha = 0.15f),
             strokeCap = StrokeCap.Round
         )
     }
@@ -505,25 +555,30 @@ private fun CategoryRow(category: StorageCategory, total: Long) {
 // ─────────────────────────────────────────────────────────
 
 @Composable
-private fun LargeFileRow(largeFile: LargeFile, onDelete: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+private fun LargeFileRow(
+    largeFile: LargeFile, 
+    onDelete: () -> Unit,
+    neonColor: Color
+) {
+    val isDark = isSystemInDarkTheme()
+    
+    GlassCard(
+        neonAccent = NovaError.copy(alpha = 0.3f),
+        enableGlow = false
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = NovaTokens.Spacing.md, vertical = NovaTokens.Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // File type icon
+            // Cyber Icon Container
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(NovaTokens.Radius.sm))
+                    .background(NovaError.copy(alpha = 0.08f))
+                    .border(1.dp, NovaError.copy(alpha = 0.2f), RoundedCornerShape(NovaTokens.Radius.sm)),
                 contentAlignment = Alignment.Center
             ) {
                 val fakeItem = FileItem(
@@ -534,32 +589,34 @@ private fun LargeFileRow(largeFile: LargeFile, onDelete: () -> Unit) {
                     lastModified = 0L,
                     extension = largeFile.name.substringAfterLast('.', "").lowercase()
                 )
-                Text(fileEmoji(fakeItem), fontSize = 22.sp)
+                Text(fileEmoji(fakeItem), fontSize = 20.sp)
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    largeFile.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
+                    text = largeFile.name,
+                    style = NovaTypography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    largeFile.sizeBytes.toHumanReadable(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFEF4444)
+                    text = largeFile.sizeBytes.toHumanReadable(),
+                    style = NovaTypography.tagMono.copy(
+                        color = NovaError, 
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
                 )
             }
 
             IconButton(onClick = onDelete) {
                 Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = Color(0xFFEF4444)
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Purge file",
+                    tint = NovaError.copy(alpha = 0.8f)
                 )
             }
         }

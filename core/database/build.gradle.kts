@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.anegan.core.database"
-    compileSdk = 34
+    compileSdk = 35
     defaultConfig { minSdk = 29 }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8

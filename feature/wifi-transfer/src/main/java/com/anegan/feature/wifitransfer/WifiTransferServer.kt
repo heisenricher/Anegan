@@ -393,8 +393,7 @@ object WifiTransferServer {
     }
 
     private fun getBaseDir(): File {
-        val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        return File(publicDir, "Anegan").apply {
+        return File(Environment.getExternalStorageDirectory(), "Anegan").apply {
             if (!exists()) mkdirs()
         }
     }
@@ -427,50 +426,77 @@ object WifiTransferServer {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Anegan Wi-Fi Transfer</title>
+            <title>Anegan Local Transfer Portal</title>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
             <style>
                 :root {
-                    --primary: #1A237E;
-                    --primary-light: #3F51B5;
-                    --bg: #F5F6FA;
-                    --card-bg: #FFFFFF;
-                    --text: #2C3E50;
-                    --gray: #7F8C8D;
+                    --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    --accent: #764ba2;
+                    --bg: #f8fafc;
+                    --card-bg: #ffffff;
+                    --text-main: #0f172a;
+                    --text-muted: #64748b;
+                    --border: #e2e8f0;
+                    --success: #10b981;
                 }
                 * {
                     box-sizing: border-box;
                     margin: 0;
                     padding: 0;
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 }
                 body {
+                    font-family: 'Inter', sans-serif;
                     background-color: var(--bg);
-                    color: var(--text);
+                    color: var(--text-main);
+                    min-height: 100vh;
+                    display: flex;
+                    flex-direction: column;
                     padding: 40px 20px;
                 }
                 .container {
-                    max-width: 1000px;
+                    max-width: 1100px;
                     margin: 0 auto;
+                    width: 100%;
                 }
                 header {
+                    background: var(--primary-grad);
+                    color: white;
+                    padding: 40px;
+                    border-radius: 24px;
                     text-align: center;
                     margin-bottom: 40px;
+                    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+                    position: relative;
+                    overflow: hidden;
+                }
+                header::before {
+                    content: '';
+                    position: absolute;
+                    top: -50%;
+                    left: -50%;
+                    width: 200%;
+                    height: 200%;
+                    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 80%);
+                    pointer-events: none;
                 }
                 header h1 {
-                    color: var(--primary);
-                    font-size: 2.5rem;
-                    margin-bottom: 10px;
+                    font-family: 'Outfit', sans-serif;
+                    font-size: 2.8rem;
+                    font-weight: 800;
+                    margin-bottom: 12px;
+                    letter-spacing: -0.5px;
                 }
                 header p {
-                    color: var(--gray);
                     font-size: 1.1rem;
+                    opacity: 0.9;
+                    font-weight: 400;
                 }
                 .layout {
                     display: grid;
-                    grid-template-columns: 1fr 1fr;
+                    grid-template-columns: 1.2fr 1.8fr;
                     gap: 30px;
                 }
-                @media (max-width: 768px) {
+                @media (max-width: 900px) {
                     .layout {
                         grid-template-columns: 1fr;
                     }
@@ -478,94 +504,213 @@ object WifiTransferServer {
                 .card {
                     background: var(--card-bg);
                     padding: 30px;
-                    border-radius: 20px;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+                    border-radius: 24px;
+                    border: 1px solid var(--border);
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+                    display: flex;
+                    flex-direction: column;
                 }
                 .card h2 {
-                    color: var(--primary);
-                    margin-bottom: 20px;
+                    font-family: 'Outfit', sans-serif;
+                    color: var(--text-main);
+                    margin-bottom: 24px;
                     font-size: 1.5rem;
+                    font-weight: 700;
                     display: flex;
                     align-items: center;
-                    gap: 10px;
+                    gap: 12px;
+                }
+                .card h2 svg {
+                    width: 24px;
+                    height: 24px;
+                    fill: none;
+                    stroke: currentColor;
+                    stroke-width: 2;
                 }
                 #drop-zone {
-                    border: 3px dashed var(--primary-light);
+                    border: 2px dashed #cbd5e1;
                     border-radius: 20px;
-                    padding: 40px 20px;
+                    padding: 50px 20px;
                     text-align: center;
                     cursor: pointer;
-                    background-color: rgba(63, 81, 181, 0.02);
-                    transition: all 0.3s ease;
+                    background-color: #f8fafc;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
                 }
                 #drop-zone:hover, #drop-zone.dragover {
-                    background-color: rgba(63, 81, 181, 0.08);
-                    border-color: var(--primary);
+                    border-color: #667eea;
+                    background-color: #f1f5f9;
+                    transform: scale(0.99);
                 }
                 #drop-zone svg {
                     width: 64px;
                     height: 64px;
-                    fill: var(--primary-light);
-                    margin-bottom: 15px;
+                    fill: none;
+                    stroke: #667eea;
+                    stroke-width: 1.5;
+                    margin-bottom: 20px;
+                    transition: transform 0.3s ease;
+                }
+                #drop-zone:hover svg {
+                    transform: translateY(-5px);
+                }
+                .upload-title {
+                    font-weight: 600;
+                    font-size: 1.1rem;
+                    color: var(--text-main);
+                    margin-bottom: 6px;
+                }
+                .upload-sub {
+                    font-size: 0.9rem;
+                    color: var(--text-muted);
+                }
+                .progress-bar {
+                    width: 100%;
+                    background-color: #f1f5f9;
+                    height: 10px;
+                    border-radius: 10px;
+                    margin-top: 24px;
+                    overflow: hidden;
+                    display: none;
+                }
+                .progress-fill {
+                    background: var(--primary-grad);
+                    height: 100%;
+                    width: 0%;
+                    transition: width 0.1s ease;
+                }
+                #upload-status {
+                    margin-top: 12px;
+                    font-weight: 600;
+                    text-align: center;
+                    color: var(--accent);
+                    font-size: 0.95rem;
+                }
+                .search-container {
+                    margin-bottom: 16px;
+                    position: relative;
+                    width: 100%;
+                }
+                .search-input {
+                    width: 100%;
+                    padding: 12px 16px 12px 42px;
+                    border-radius: 12px;
+                    border: 1px solid var(--border);
+                    font-family: inherit;
+                    font-size: 0.95rem;
+                    outline: none;
+                    transition: border-color 0.2s;
+                }
+                .search-input:focus {
+                    border-color: #667eea;
+                }
+                .search-icon {
+                    position: absolute;
+                    left: 14px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 18px;
+                    height: 18px;
+                    stroke: var(--text-muted);
+                    stroke-width: 2;
+                    fill: none;
                 }
                 #file-list {
                     list-style: none;
-                    max-height: 400px;
+                    max-height: 500px;
                     overflow-y: auto;
-                    margin-top: 10px;
+                    padding-right: 4px;
+                }
+                #file-list::-webkit-scrollbar {
+                    width: 6px;
+                }
+                #file-list::-webkit-scrollbar-thumb {
+                    background-color: #cbd5e1;
+                    border-radius: 3px;
                 }
                 .file-item {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 15px;
-                    border-bottom: 1px solid #ECEFF1;
-                    transition: background 0.2s ease;
+                    padding: 14px 16px;
+                    border: 1px solid var(--border);
+                    border-radius: 16px;
+                    margin-bottom: 10px;
+                    transition: all 0.2s ease;
                 }
                 .file-item:hover {
-                    background-color: #F8F9FA;
+                    border-color: #cbd5e1;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+                    background-color: #f8fafc;
                 }
-                .file-info {
+                .file-details {
                     display: flex;
-                    flex-direction: column;
+                    align-items: center;
+                    gap: 12px;
+                    min-width: 0;
+                }
+                .file-icon {
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 800;
+                    font-size: 0.75rem;
+                    flex-shrink: 0;
+                }
+                .ext-pdf { background-color: #ffebee; color: #c62828; }
+                .ext-doc, .ext-docx, .ext-txt { background-color: #e3f2fd; color: #1565c0; }
+                .ext-xls, .ext-xlsx { background-color: #e8f5e9; color: #2e7d32; }
+                .ext-mp4, .ext-mkv, .ext-avi { background-color: #fff3e0; color: #ef6c00; }
+                .ext-mp3, .ext-wav, .ext-flac { background-color: #f3e5f5; color: #6a1b9a; }
+                .ext-zip, .ext-rar, .ext-7z { background-color: #efebe9; color: #4e342e; }
+                .ext-jpg, .ext-png, .ext-webp { background-color: #f1f8e9; color: #33691e; }
+                .ext-apk { background-color: #e8f5e9; color: #1b5e20; }
+                .ext-other { background-color: #eceff1; color: #37474f; }
+
+                .file-info {
+                    min-width: 0;
                 }
                 .file-name {
                     font-weight: 600;
                     font-size: 0.95rem;
-                    color: var(--primary);
-                    margin-bottom: 4px;
+                    color: var(--text-main);
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    display: block;
+                    margin-bottom: 2px;
                 }
                 .file-meta {
                     font-size: 0.8rem;
-                    color: var(--gray);
+                    color: var(--text-muted);
                 }
                 .download-btn {
                     padding: 8px 16px;
-                    background-color: var(--primary);
+                    background: var(--primary-grad);
                     color: white;
                     text-decoration: none;
                     border-radius: 10px;
                     font-weight: 600;
                     font-size: 0.85rem;
-                    transition: background 0.2s ease;
+                    transition: opacity 0.2s ease;
+                    flex-shrink: 0;
+                    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.15);
                 }
                 .download-btn:hover {
-                    background-color: var(--primary-light);
+                    opacity: 0.9;
                 }
-                .progress-bar {
-                    width: 100%;
-                    background-color: #ECEFF1;
-                    height: 8px;
-                    border-radius: 4px;
-                    margin-top: 15px;
-                    overflow: hidden;
-                    display: none;
-                }
-                .progress-fill {
-                    background-color: var(--primary-light);
-                    height: 100%;
-                    width: 0%;
-                    transition: width 0.1s ease;
+                footer {
+                    margin-top: auto;
+                    text-align: center;
+                    padding-top: 40px;
+                    color: var(--text-muted);
+                    font-size: 0.9rem;
                 }
             </style>
         </head>
@@ -577,27 +722,40 @@ object WifiTransferServer {
                 </header>
                 <div class="layout">
                     <div class="card">
-                        <h2>📤 Upload to Device</h2>
+                        <h2>
+                            <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/></svg>
+                            Upload to Device
+                        </h2>
                         <div id="drop-zone" onclick="document.getElementById('file-input').click()">
                             <svg viewBox="0 0 24 24">
-                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/>
                             </svg>
-                            <p style="font-weight: 600; color: var(--primary); margin-bottom: 5px;">Drag & Drop files here</p>
-                            <p style="font-size: 0.85rem; color: var(--gray);">or click to browse your computer</p>
+                            <p class="upload-title">Drag & Drop files here</p>
+                            <p class="upload-sub">or click to browse your computer</p>
                             <input type="file" id="file-input" style="display: none;" multiple>
                         </div>
                         <div class="progress-bar" id="progress-container">
                             <div class="progress-fill" id="progress-fill"></div>
                         </div>
-                        <p id="upload-status" style="margin-top: 10px; font-weight: 600; text-align: center; color: var(--primary-light);"></p>
+                        <p id="upload-status"></p>
                     </div>
                     <div class="card">
-                        <h2>📥 Files inside Anegan</h2>
+                        <h2>
+                            <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A9 9 0 0112 3v.75m-9.75 9h9.75M3 12.75a9 9 0 009-9M3 12.75h9.75m0 0A9 9 0 0021 12v-.75m-9.75 9h9.75M12 21a9 9 0 009-9M12 21h9.75m-9.75 0V12m0 9v-.75m0 0h9.75"/></svg>
+                            Files in Anegan
+                        </h2>
+                        <div class="search-container">
+                            <svg class="search-icon" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input type="text" id="search-input" class="search-input" placeholder="Search files...">
+                        </div>
                         <ul id="file-list">
-                            <li style="text-align: center; padding: 40px 0; color: var(--gray);">Scanning folders...</li>
+                            <li style="text-align: center; padding: 40px 0; color: var(--text-muted);">Scanning folders...</li>
                         </ul>
                     </div>
                 </div>
+                <footer>
+                    <p>© 2026 Mahilan (heisenricher) — Anegan Workspace</p>
+                </footer>
             </div>
             <script>
                 const dropZone = document.getElementById('drop-zone');
@@ -606,32 +764,61 @@ object WifiTransferServer {
                 const progressContainer = document.getElementById('progress-container');
                 const progressFill = document.getElementById('progress-fill');
                 const uploadStatus = document.getElementById('upload-status');
+                let allFilesList = [];
 
                 async function loadFiles() {
                     try {
                         const res = await fetch('/api/files');
-                        const files = await res.json();
-                        fileList.innerHTML = '';
-                        if (files.length === 0) {
-                            fileList.innerHTML = '<li style="text-align: center; padding: 40px 0; color: var(--gray);">No files found in Anegan yet.</li>';
-                            return;
-                        }
-                        files.forEach(file => {
-                            const li = document.createElement('li');
-                            li.className = 'file-item';
-                            li.innerHTML = `
-                                <div class="file-info">
-                                    <span class="file-name">${"$"}{escapeHtml(file.name)}</span>
-                                    <span class="file-meta">${"$"}{file.sizeMb} MB • ${"$"}{escapeHtml(file.extension.toUpperCase())}</span>
-                                </div>
-                                <a href="/download?path=${"$"}{encodeURIComponent(file.path)}" class="download-btn">Download</a>
-                            `;
-                            fileList.appendChild(li);
-                        });
+                        allFilesList = await res.json();
+                        renderFiles(allFilesList);
                     } catch (e) {
                         fileList.innerHTML = '<li style="text-align: center; padding: 40px 0; color: red;">Failed to load files.</li>';
                     }
                 }
+
+                function renderFiles(files) {
+                    fileList.innerHTML = '';
+                    if (files.length === 0) {
+                        fileList.innerHTML = '<li style="text-align: center; padding: 40px 0; color: var(--text-muted);">No matching files found.</li>';
+                        return;
+                    }
+                    files.forEach(file => {
+                        const ext = file.extension.toLowerCase();
+                        let extClass = 'ext-other';
+                        if (['pdf'].includes(ext)) extClass = 'ext-pdf';
+                        else if (['doc', 'docx', 'txt', 'rtf'].includes(ext)) extClass = 'ext-doc';
+                        else if (['xls', 'xlsx', 'csv'].includes(ext)) extClass = 'ext-xls';
+                        else if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext)) extClass = 'ext-mp4';
+                        else if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'opus'].includes(ext)) extClass = 'ext-mp3';
+                        else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) extClass = 'ext-zip';
+                        else if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) extClass = 'ext-jpg';
+                        else if (['apk'].includes(ext)) extClass = 'ext-apk';
+
+                        const li = document.createElement('li');
+                        li.className = 'file-item';
+                        li.innerHTML = `
+                            <div class="file-details">
+                                <div class="file-icon ${"$"}{extClass}">${"$"}{escapeHtml(ext.toUpperCase() || 'FILE')}</div>
+                                <div class="file-info">
+                                    <span class="file-name" title="${"$"}{escapeHtml(file.name)}">${"$"}{escapeHtml(file.name)}</span>
+                                    <span class="file-meta">${"$"}{file.sizeMb} MB • Modified: ${"$"}{new Date(file.lastModified).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                            <a href="/download?path=${"$"}{encodeURIComponent(file.path)}" class="download-btn">Download</a>
+                        `;
+                        fileList.appendChild(li);
+                    });
+                }
+
+                const searchInput = document.getElementById('search-input');
+                searchInput.addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase();
+                    const filtered = allFilesList.filter(file => 
+                        file.name.toLowerCase().includes(query) || 
+                        file.extension.toLowerCase().includes(query)
+                    );
+                    renderFiles(filtered);
+                });
 
                 function escapeHtml(str) {
                     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");

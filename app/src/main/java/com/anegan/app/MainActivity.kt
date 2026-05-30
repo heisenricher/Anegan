@@ -11,6 +11,7 @@ package com.anegan.app
 
 import android.os.Bundle
 import android.widget.Toast
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,8 +45,10 @@ import com.anegan.feature.conversion.ExifScreen
 import com.anegan.feature.conversion.DevToolsScreen
 import com.anegan.feature.conversion.ColorPickerScreen
 import com.anegan.feature.conversion.UnitConverterScreen
-import com.anegan.feature.conversion.BackgroundRemoverScreen
+
 import com.anegan.feature.conversion.ImageWatermarkScreen
+import com.anegan.feature.conversion.VideoPlayerScreen
+import com.anegan.feature.conversion.AudioPlayerScreen
 import com.anegan.feature.conversion.PdfPageOrganizerScreen
 import com.anegan.feature.conversion.PdfReaderEditorScreen
 import com.anegan.feature.conversion.CompassScreen
@@ -53,12 +56,14 @@ import com.anegan.feature.conversion.CalculatorScreen
 import com.anegan.feature.conversion.FlashlightScreen
 import com.anegan.feature.conversion.CurrencyConverterScreen
 import com.anegan.feature.conversion.OfflineCommScreen
+import com.anegan.feature.conversion.VoiceRecorderScreen
 import com.anegan.feature.history.HistoryScreen
 import com.anegan.feature.history.BiometricHelper
 import com.anegan.feature.notes.NoteListScreen
 import com.anegan.feature.notes.NoteEditorScreen
 import com.anegan.feature.vault.VaultScreen
 import com.anegan.feature.filemanager.FileManagerScreen
+import com.anegan.feature.filemanager.StorageAnalyzerScreen
 import com.anegan.feature.documentreader.DocumentHubScreen
 import com.anegan.feature.wifitransfer.WifiTransferScreen
 import com.anegan.feature.apktools.ApkToolsScreen
@@ -116,7 +121,9 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
+        CrashHandler.init(applicationContext)
         // Initialize PDFBox resource loader
         com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(applicationContext)
 
@@ -128,7 +135,6 @@ class MainActivity : FragmentActivity() {
             var selectedCategory by remember { mutableStateOf<String?>(null) }
             var presetParams by remember { mutableStateOf<Map<String, String>?>(null) }
             var isHistoryAuthenticated by remember { mutableStateOf(false) }
-            var showUpdateDialog by remember { mutableStateOf(false) }
             var updateUrl by remember { mutableStateOf("https://github.com/heisenricher/Anegan/releases/latest") }
             // Notes sub-navigation: null = list, non-null = editor (null string = new note, noteId = existing)
             var selectedNoteId by remember { mutableStateOf<String?>(null) }
@@ -144,7 +150,6 @@ class MainActivity : FragmentActivity() {
                 val releaseInfo = UpdateChecker.getLatestReleaseInfo()
                 if (releaseInfo != null && UpdateChecker.isUpdateAvailable(currentVersion, releaseInfo.version)) {
                     updateUrl = releaseInfo.url
-                    showUpdateDialog = true
                 }
 
                 // Handle launcher shortcuts and share intents
@@ -193,6 +198,44 @@ class MainActivity : FragmentActivity() {
                         }
                         if (!streamUris.isNullOrEmpty() && typ.startsWith("image/")) {
                             selectedCategory = "Batch Image"
+                        }
+                    }
+                    act == android.content.Intent.ACTION_VIEW -> {
+                        val uri = intentVal.data
+                        val mimeType = typ ?: uri?.let { contentResolver.getType(it) }
+                        when {
+                            mimeType?.startsWith("video/") == true -> {
+                                presetParams = uri?.toString()?.let { mapOf("videoUri" to it) }
+                                selectedCategory = "Video Player"
+                            }
+                            mimeType?.startsWith("audio/") == true -> {
+                                presetParams = uri?.toString()?.let { mapOf("audioPath" to it) }
+                                selectedCategory = "Audio Player"
+                            }
+                            mimeType?.startsWith("image/") == true -> {
+                                presetParams = uri?.toString()?.let { mapOf("fileUri" to it) }
+                                selectedCategory = "Images"
+                            }
+                            mimeType == "application/pdf" -> {
+                                val path = uri?.let { saveSharedStreamToCache(it, mimeType) }
+                                presetParams = path?.let { mapOf("initialFilePath" to it) }
+                                selectedCategory = "Document Hub"
+                            }
+                            mimeType?.startsWith("text/") == true || mimeType?.contains("epub") == true || mimeType?.contains("word") == true || mimeType?.contains("officedocument") == true -> {
+                                val path = uri?.let { saveSharedStreamToCache(it, mimeType) }
+                                presetParams = path?.let { mapOf("initialFilePath" to it) }
+                                selectedCategory = "Document Hub"
+                            }
+                            mimeType == "application/zip" || mimeType?.contains("zip") == true || mimeType?.contains("archive") == true || mimeType == "application/vnd.package-archive" || mimeType?.startsWith("image/") == true -> {
+                                val path = uri?.let { saveSharedStreamToCache(it, mimeType) }
+                                presetParams = path?.let { mapOf("initialFilePath" to it) }
+                                selectedCategory = "Document Hub"
+                            }
+                            else -> {
+                                val path = uri?.let { saveSharedStreamToCache(it, mimeType) }
+                                presetParams = path?.let { mapOf("initialFilePath" to it) }
+                                selectedCategory = "Document Hub"
+                            }
                         }
                     }
                 }
@@ -247,17 +290,17 @@ class MainActivity : FragmentActivity() {
                 }
             }
 
-            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-            val darkTheme = when (themeSelection) {
-                "Dark"  -> true
-                "Light" -> false
-                else    -> isSystemDark
-            }
-
             val haptic = LocalHapticFeedback.current
 
+            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isDark = when (themeSelection) {
+                "Dark" -> true
+                "Light" -> false
+                else -> isSystemDark
+            }
+
             AneganTheme(
-                darkTheme = darkTheme,
+                darkTheme = isDark,
                 dynamicColor = dynamicThemePref,
                 amoledDark = amoledThemePref,
                 fontName = customFontPref
@@ -274,28 +317,7 @@ class MainActivity : FragmentActivity() {
                             }
                         )
                     } else {
-                        if (showUpdateDialog) {
-                            androidx.compose.material3.AlertDialog(
-                                onDismissRequest = { showUpdateDialog = false },
-                                title = { androidx.compose.material3.Text("Update Available!") },
-                                text = { androidx.compose.material3.Text("A new version of Anegan is ready. Update now for the latest features.") },
-                                confirmButton = {
-                                    androidx.compose.material3.TextButton(onClick = {
-                                        val intent = android.content.Intent(
-                                            android.content.Intent.ACTION_VIEW,
-                                            android.net.Uri.parse(updateUrl)
-                                        )
-                                        startActivity(intent)
-                                        showUpdateDialog = false
-                                    }) { androidx.compose.material3.Text("Update") }
-                                },
-                                dismissButton = {
-                                    androidx.compose.material3.TextButton(onClick = { showUpdateDialog = false }) {
-                                        androidx.compose.material3.Text("Later")
-                                    }
-                                }
-                            )
-                        }
+
 
                         AnimatedContent(
                             targetState = selectedCategory,
@@ -346,12 +368,14 @@ class MainActivity : FragmentActivity() {
                                     presetParams = null
                                     isHistoryAuthenticated = false
                                 }
-                                when {
-                                    targetCategory == "History" && isHistoryAuthenticated ->
-                                        HistoryScreen(onBack = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            selectedCategory = null; presetParams = null; isHistoryAuthenticated = false
-                                        })
+                                 when {
+                                     targetCategory == "Survival Library" ->
+                                         SurvivalLibraryScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
+                                     targetCategory == "History" && isHistoryAuthenticated ->
+                                         HistoryScreen(onBack = {
+                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                             selectedCategory = null; presetParams = null; isHistoryAuthenticated = false
+                                         })
                                     targetCategory == "Document Hub" -> {
                                         val initialPath = presetParams?.get("initialFilePath")
                                         DocumentHubScreen(
@@ -378,8 +402,10 @@ class MainActivity : FragmentActivity() {
                                             },
                                             onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null }
                                         )
-                                    targetCategory == "Feedback" ->
-                                        com.anegan.feature.dashboard.FeedbackScreen()
+                                     targetCategory == "Feedback" ->
+                                         com.anegan.feature.dashboard.FeedbackScreen(
+                                             onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null }
+                                         )
                                     targetCategory == "Documents" ->
                                         DocumentConversionScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null })
                                     targetCategory == "PDF Tools" ->
@@ -400,8 +426,7 @@ class MainActivity : FragmentActivity() {
                                         ColorPickerScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null })
                                     targetCategory == "Unit Converter" ->
                                         UnitConverterScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null })
-                                    targetCategory == "AI Background Remover" ->
-                                        BackgroundRemoverScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null })
+
                                     targetCategory == "Image Watermark" ->
                                         ImageWatermarkScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null })
                                      targetCategory == "PDF Organizer" || targetCategory == "PDF Reader & Editor" ->
@@ -432,10 +457,44 @@ class MainActivity : FragmentActivity() {
                                                 openNoteEditor = true
                                             }
                                         )
-                                    targetCategory == "Vault" ->
-                                        VaultScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
+                                     targetCategory == "Video Player" ->
+                                         VideoPlayerScreen(
+                                             videoUri = presetParams?.get("videoUri"),
+                                             onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null }
+                                         )
+                                     targetCategory == "Audio Player" ->
+                                         AudioPlayerScreen(
+                                             initialAudioPath = presetParams?.get("audioPath"),
+                                             onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null; presetParams = null }
+                                         )
+                                     targetCategory == "Vault" ->
+                                         VaultScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
+                                    targetCategory == "Storage Analyzer" ->
+                                        StorageAnalyzerScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
+                                    targetCategory == "Voice Recorder" ->
+                                        VoiceRecorderScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
                                     targetCategory == "File Manager" ->
-                                        FileManagerScreen(onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null })
+                                        FileManagerScreen(
+                                            onBack = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); selectedCategory = null },
+                                            onOpenFile = { filePath ->
+                                                val file = java.io.File(filePath)
+                                                val ext = file.extension.lowercase()
+                                                when {
+                                                    ext in listOf("mp4", "mkv", "avi", "mov", "webm", "3gp") -> {
+                                                        presetParams = mapOf("videoUri" to android.net.Uri.fromFile(file).toString())
+                                                        selectedCategory = "Video Player"
+                                                    }
+                                                    ext in listOf("mp3", "m4a", "flac", "wav", "aac", "ogg", "opus", "wma") -> {
+                                                        presetParams = mapOf("audioPath" to file.absolutePath)
+                                                        selectedCategory = "Audio Player"
+                                                    }
+                                                    else -> {
+                                                        presetParams = mapOf("initialFilePath" to file.absolutePath)
+                                                        selectedCategory = "Document Hub"
+                                                    }
+                                                }
+                                            }
+                                        )
                                     targetCategory == "Video" || targetCategory == "Audio" ->
                                         MediaConversionScreen(
                                             categoryName = targetCategory,

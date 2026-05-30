@@ -15,8 +15,11 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -24,6 +27,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -41,11 +45,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,8 +60,7 @@ import com.anegan.core.conversion.PdfPageManager
 import com.anegan.core.conversion.StorageManager
 import com.anegan.core.database.DatabaseProvider
 import com.anegan.core.database.ConversionHistoryEntity
-import com.anegan.core.designsystem.theme.MidnightIndigo
-import com.anegan.core.designsystem.theme.PureWhite
+import com.anegan.core.designsystem.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -62,8 +68,7 @@ import java.io.File
 
 enum class ReaderMode {
     READ,
-    ORGANIZE,
-    ANNOTATE
+    ORGANIZE
 }
 
 data class DrawPoint(val position: Offset, val color: Color, val brushSize: Float)
@@ -75,7 +80,9 @@ fun PdfReaderEditorScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
+    val isDark = isSystemInDarkTheme()
 
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var selectedFileName by remember { mutableStateOf<String?>(null) }
@@ -84,7 +91,7 @@ fun PdfReaderEditorScreen(
 
     var isProcessing by remember { mutableStateOf(false) }
     var readerMode by remember { mutableStateOf(ReaderMode.READ) }
-    var isInDarkReadingMode by remember { mutableStateOf(false) }
+    var isInDarkReadingMode by remember { mutableStateOf(isDark) }
 
     // Page indexes and rendered bitmap cache
     val pageIndices = remember { mutableStateListOf<Int>() }
@@ -93,6 +100,8 @@ fun PdfReaderEditorScreen(
     // Annotation Dialog target
     var annotatePageIndex by remember { mutableStateOf<Int?>(null) }
     var showAnnotationDialog by remember { mutableStateOf(false) }
+
+    val primaryAccent = NeonCyan // Cyan theme for Documents
 
     val pdfPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -162,6 +171,7 @@ fun PdfReaderEditorScreen(
                 isProcessing = false
                 if (result.isSuccess) {
                     val savedFile = result.getOrThrow()
+                    NovaHaptics.success(view)
                     Toast.makeText(context, "PDF saved to Anegan/Documents successfully!", Toast.LENGTH_LONG).show()
                     
                     // Log to DB
@@ -195,202 +205,179 @@ fun PdfReaderEditorScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(if (isInDarkReadingMode) Color(0xFF121212) else MaterialTheme.colorScheme.background)
-            .padding(24.dp)
-    ) {
-        // Sleek Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isInDarkReadingMode) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.surface)
-                        .border(
-                            width = 0.5.dp,
-                            color = if (isInDarkReadingMode) Color(0xFF2E2E2E) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                ) {
-                    Text("←", fontSize = 20.sp, color = if (isInDarkReadingMode) Color.White else MidnightIndigo, fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = "PDF Reader & Editor",
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 20.sp),
-                    color = if (isInDarkReadingMode) Color.White else MidnightIndigo
-                )
-            }
-
-            if (selectedFileName != null) {
-                // Invert Reading Dark Mode Toggle
-                IconButton(
-                    onClick = { isInDarkReadingMode = !isInDarkReadingMode },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(if (isInDarkReadingMode) Color(0xFF2C2C2E) else Color(0xFFF2F2F7))
-                ) {
-                    Text(
-                        text = if (isInDarkReadingMode) "☀️" else "🌙",
-                        fontSize = 18.sp
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        if (selectedFileName == null) {
-            // File Selector view
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { pdfPickerLauncher.launch("application/pdf") },
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("📕", fontSize = 48.sp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Select PDF Document", color = MidnightIndigo, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Read, annotate, sign, and edit pages offline.", color = Color.Gray, fontSize = 12.sp)
-                    }
-                }
-            }
+    BackHandler {
+        if (selectedFileName != null) {
+            selectedFileName = null
+            selectedUri = null
+            pageIndices.clear()
+            pageThumbnails.clear()
         } else {
-            // Mode Select Segment
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isInDarkReadingMode) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.surface)
-                    .border(
-                        width = 0.5.dp,
-                        color = if (isInDarkReadingMode) Color(0xFF2E2E2E) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(4.dp)
-            ) {
-                val modes = listOf(
-                    ReaderMode.READ to "Read",
-                    ReaderMode.ORGANIZE to "Organize",
-                )
-                modes.forEach { (mode, label) ->
-                    val isSelected = readerMode == mode
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) MidnightIndigo else Color.Transparent)
-                            .clickable { readerMode = mode }
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isSelected) Color.White else (if (isInDarkReadingMode) Color.Gray else MidnightIndigo)
-                        )
+            onBack()
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            NovaTopBar(
+                title = "Document Reader",
+                onBack = {
+                    if (selectedFileName != null) {
+                        selectedFileName = null
+                        selectedUri = null
+                        pageIndices.clear()
+                        pageThumbnails.clear()
+                    } else {
+                        onBack()
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            if (isProcessing) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MidnightIndigo)
-                }
-            } else {
-                when (readerMode) {
-                    ReaderMode.READ -> {
-                        // Scrolling Render View
-                        Box(modifier = Modifier.weight(1f)) {
-                            PdfScrollReader(
-                                file = tempPdfFile!!,
-                                pageIndices = pageIndices,
-                                pageThumbnails = pageThumbnails,
-                                isDarkReading = isInDarkReadingMode,
-                                onAnnotate = { index ->
-                                    annotatePageIndex = index
-                                    showAnnotationDialog = true
-                                }
+                },
+                neonAccent = primaryAccent,
+                actions = {
+                    if (selectedFileName != null) {
+                        IconButton(
+                            onClick = { 
+                                NovaHaptics.click(view)
+                                isInDarkReadingMode = !isInDarkReadingMode 
+                            }
+                        ) {
+                            Text(
+                                text = if (isInDarkReadingMode) "☀️" else "🌙",
+                                fontSize = 18.sp
                             )
                         }
                     }
-                    ReaderMode.ORGANIZE -> {
-                        // Arrange pages grid
-                        Column(modifier = Modifier.weight(1f)) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                PdfPagesGrid(
-                                    pageIndices = pageIndices,
-                                    pageThumbnails = pageThumbnails,
-                                    isDarkReading = isInDarkReadingMode,
-                                    onRotate = { idx ->
-                                        // Rotate 90 deg locally in background
-                                        isProcessing = true
-                                        coroutineScope.launch {
-                                            val res = PdfPageManager().rotatePage(tempPdfFile!!, idx, 90)
-                                            isProcessing = false
-                                            if (res.isSuccess) {
-                                                tempPdfFile = res.getOrThrow()
-                                                // Reload thumbnail
-                                                val reBmp = PdfPageManager().renderPageThumbnail(tempPdfFile!!, idx, 220)
-                                                if (reBmp.isSuccess) {
-                                                    pageThumbnails[idx] = reBmp.getOrThrow()
-                                                }
-                                                Toast.makeText(context, "Page rotated", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    },
-                                    onDelete = { idx ->
-                                        pageIndices.removeAt(idx)
-                                    }
-                                )
+                }
+            )
+        }
+    ) { innerPadding ->
+        NovaBackground {
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = NovaTokens.Spacing.md, vertical = NovaTokens.Spacing.xs),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (selectedFileName == null) {
+                    // File Selector view
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        GlassCard(
+                            neonAccent = primaryAccent,
+                            enableGlow = true,
+                            onClick = { 
+                                NovaHaptics.click(view)
+                                pdfPickerLauncher.launch("application/pdf") 
                             }
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            Button(
-                                onClick = { saveOrganizedPdf() },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(54.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = Color.White)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(NovaTokens.Spacing.xl),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Save Reorganized PDF", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("📕", fontSize = 48.sp)
+                                Spacer(modifier = Modifier.height(NovaTokens.Spacing.md))
+                                Text(
+                                    text = "Mount PDF Document", 
+                                    style = NovaTypography.headlineLarge.copy(color = primaryAccent, fontWeight = FontWeight.Bold)
+                                )
+                                Spacer(modifier = Modifier.height(NovaTokens.Spacing.xxs))
+                                Text(
+                                    text = "Read, annotate, sign, and organize pages offline", 
+                                    style = NovaTypography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
-                    else -> {}
+                } else {
+                    // Futuristic Mode Select Segment
+                    NovaSegmentedControl(
+                        items = listOf("Read Document", "Organize Pages"),
+                        selectedIndex = if (readerMode == ReaderMode.READ) 0 else 1,
+                        onIndexSelected = { 
+                            readerMode = if (it == 0) ReaderMode.READ else ReaderMode.ORGANIZE 
+                        },
+                        neonColor = primaryAccent,
+                        modifier = Modifier.padding(vertical = NovaTokens.Spacing.xxs)
+                    )
+
+                    Spacer(modifier = Modifier.height(NovaTokens.Spacing.sm))
+
+                    if (isProcessing) {
+                        Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = primaryAccent)
+                        }
+                    } else {
+                        when (readerMode) {
+                            ReaderMode.READ -> {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    PdfScrollReader(
+                                        file = tempPdfFile!!,
+                                        pageIndices = pageIndices,
+                                        pageThumbnails = pageThumbnails,
+                                        isDarkReading = isInDarkReadingMode,
+                                        onAnnotate = { index ->
+                                            NovaHaptics.recording(view)
+                                            annotatePageIndex = index
+                                            showAnnotationDialog = true
+                                        },
+                                        neonColor = primaryAccent
+                                    )
+                                }
+                            }
+                            ReaderMode.ORGANIZE -> {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        PdfPagesGrid(
+                                            pageIndices = pageIndices,
+                                            pageThumbnails = pageThumbnails,
+                                            isDarkReading = isInDarkReadingMode,
+                                            onRotate = { idx ->
+                                                NovaHaptics.click(view)
+                                                isProcessing = true
+                                                coroutineScope.launch {
+                                                    val res = PdfPageManager().rotatePage(tempPdfFile!!, idx, 90)
+                                                    isProcessing = false
+                                                    if (res.isSuccess) {
+                                                        tempPdfFile = res.getOrThrow()
+                                                        // Reload thumbnail
+                                                        val reBmp = PdfPageManager().renderPageThumbnail(tempPdfFile!!, idx, 220)
+                                                        if (reBmp.isSuccess) {
+                                                            pageThumbnails[idx] = reBmp.getOrThrow()
+                                                        }
+                                                        Toast.makeText(context, "Page rotated", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            },
+                                            onDelete = { idx ->
+                                                NovaHaptics.warning(view)
+                                                pageIndices.removeAt(idx)
+                                            },
+                                            neonColor = primaryAccent
+                                        )
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(NovaTokens.Spacing.sm))
+                                    
+                                    NovaPrimaryButton(
+                                        text = "Save Reorganized Document",
+                                        neonColor = primaryAccent,
+                                        onClick = { saveOrganizedPdf() },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    // Annotations Finger Drawing & Sign Dialog
+    // Annotations Drawing & Sign Dialog
     if (showAnnotationDialog && annotatePageIndex != null && tempPdfFile != null) {
         PdfDrawAnnotationDialog(
             file = tempPdfFile!!,
@@ -405,6 +392,7 @@ fun PdfReaderEditorScreen(
                     annotatePageIndex = null
                     if (res.isSuccess) {
                         tempPdfFile = res.getOrThrow()
+                        NovaHaptics.success(view)
                         Toast.makeText(context, "Page annotated successfully!", Toast.LENGTH_SHORT).show()
                         
                         // Reload thumbnail
@@ -416,7 +404,8 @@ fun PdfReaderEditorScreen(
                         Toast.makeText(context, "Failed to save annotations", Toast.LENGTH_SHORT).show()
                     }
                 }
-            }
+            },
+            neonColor = primaryAccent
         )
     }
 }
@@ -430,14 +419,14 @@ fun PdfScrollReader(
     pageIndices: List<Int>,
     pageThumbnails: Map<Int, Bitmap>,
     isDarkReading: Boolean,
-    onAnnotate: (Int) -> Unit
+    onAnnotate: (Int) -> Unit,
+    neonColor: Color
 ) {
-    val coroutineScope = rememberCoroutineScope()
     val loadedBitmaps = remember { mutableStateMapOf<Int, Bitmap>() }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.md),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         itemsIndexed(pageIndices) { listIdx, originalIndex ->
@@ -454,18 +443,11 @@ fun PdfScrollReader(
                 }
             }
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = if (isDarkReading) Color(0xFF1E1E1E) else Color.White),
-                border = BorderStroke(
-                    0.5.dp,
-                    if (isDarkReading) Color(0xFF2E2E2E) else Color.LightGray.copy(alpha = 0.5f)
-                )
+            GlassCard(
+                neonAccent = if (isDarkReading) neonColor else Color.Transparent,
+                enableGlow = isDarkReading
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(NovaTokens.Spacing.md)) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -474,22 +456,30 @@ fun PdfScrollReader(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Page ${listIdx + 1}",
-                            fontWeight = FontWeight.Bold,
-                            color = if (isDarkReading) Color.White else MidnightIndigo,
-                            fontSize = 14.sp
+                            text = "PAGE ${listIdx + 1}",
+                            style = NovaTypography.tagMono.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDarkReading) neonColor else MaterialTheme.colorScheme.primary
+                            )
                         )
-                        Text(
-                            text = "Annotate / Sign ✍️",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MidnightIndigo,
+                        
+                        Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isDarkReading) Color(0xFF2A2A2E) else Color(0xFFF2F2F7))
+                                .clip(RoundedCornerShape(NovaTokens.Radius.sm))
+                                .background(if (isDarkReading) neonColor.copy(alpha = 0.15f) else neonColor.copy(alpha = 0.07f))
+                                .border(1.dp, neonColor.copy(alpha = 0.25f), RoundedCornerShape(NovaTokens.Radius.sm))
                                 .clickable { onAnnotate(originalIndex) }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "Sign / Draw ✍️",
+                                style = NovaTypography.tagMono.copy(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = neonColor
+                                )
+                            )
+                        }
                     }
 
                     // Pinch-to-zoom container
@@ -539,7 +529,7 @@ fun PdfScrollReader(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(color = MidnightIndigo, strokeWidth = 2.dp)
+                                CircularProgressIndicator(color = neonColor, strokeWidth = 2.dp)
                             }
                         }
                     }
@@ -558,49 +548,47 @@ fun PdfPagesGrid(
     pageThumbnails: Map<Int, Bitmap>,
     isDarkReading: Boolean,
     onRotate: (Int) -> Unit,
-    onDelete: (Int) -> Unit
+    onDelete: (Int) -> Unit,
+    neonColor: Color
 ) {
+    val isDark = isSystemInDarkTheme()
+
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.sm),
         contentPadding = PaddingValues(bottom = 24.dp),
         modifier = Modifier.fillMaxSize()
     ) {
         itemsIndexed(pageIndices.toList()) { listIndex, originalIndex ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(260.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = if (isDarkReading) Color(0xFF1E1E1E) else Color.White),
-                border = BorderStroke(
-                    0.5.dp,
-                    if (isDarkReading) Color(0xFF2E2E2E) else Color.LightGray.copy(alpha = 0.5f)
-                )
+            GlassCard(
+                neonAccent = if (isDarkReading) neonColor else Color.Transparent,
+                enableGlow = false
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(12.dp),
+                        .padding(NovaTokens.Spacing.sm),
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Page ${listIndex + 1}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isDarkReading) Color.White else MidnightIndigo
+                            text = "PAGE ${listIndex + 1}",
+                            style = NovaTypography.tagMono.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDarkReading) neonColor else MaterialTheme.colorScheme.primary
+                            )
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             // Up Arrow to Reorder
                             Text(
                                 text = "▲",
-                                fontSize = 10.sp,
+                                fontSize = 12.sp,
                                 modifier = Modifier
                                     .clickable(enabled = listIndex > 0) {
                                         val temp = pageIndices[listIndex]
@@ -608,12 +596,12 @@ fun PdfPagesGrid(
                                         pageIndices[listIndex - 1] = temp
                                     }
                                     .padding(4.dp),
-                                color = if (listIndex > 0) MidnightIndigo else Color.LightGray
+                                color = if (listIndex > 0) neonColor else (if (isDark) NovaBorderDark else NovaBorderLight)
                             )
                             // Down Arrow to Reorder
                             Text(
                                 text = "▼",
-                                fontSize = 10.sp,
+                                fontSize = 12.sp,
                                 modifier = Modifier
                                     .clickable(enabled = listIndex < pageIndices.size - 1) {
                                         val temp = pageIndices[listIndex]
@@ -621,7 +609,7 @@ fun PdfPagesGrid(
                                         pageIndices[listIndex + 1] = temp
                                     }
                                     .padding(4.dp),
-                                color = if (listIndex < pageIndices.size - 1) MidnightIndigo else Color.LightGray
+                                color = if (listIndex < pageIndices.size - 1) neonColor else (if (isDark) NovaBorderDark else NovaBorderLight)
                             )
                         }
                     }
@@ -630,16 +618,16 @@ fun PdfPagesGrid(
                     Box(
                         modifier = Modifier
                             .height(130.dp)
-                            .fillMaxWidth(0.8f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFF1F5F9)),
+                            .fillMaxWidth(0.9f)
+                            .clip(RoundedCornerShape(NovaTokens.Radius.sm))
+                            .background(if (isDark) Color.Black.copy(alpha = 0.3f) else Color(0xFFF1F5F9)),
                         contentAlignment = Alignment.Center
                     ) {
                         val bmp = pageThumbnails[originalIndex]
                         if (bmp != null) {
                             Image(
                                 bitmap = bmp.asImageBitmap(),
-                                contentDescription = "Page Thumb",
+                                contentDescription = "Page Thumbnail",
                                 modifier = Modifier.fillMaxSize(),
                                 colorFilter = if (isDarkReading) ColorFilter.colorMatrix(
                                     ColorMatrix(
@@ -653,9 +641,11 @@ fun PdfPagesGrid(
                                 ) else null
                             )
                         } else {
-                            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp), color = neonColor)
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(NovaTokens.Spacing.xs))
 
                     // Actions
                     Row(
@@ -663,34 +653,38 @@ fun PdfPagesGrid(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = { onRotate(originalIndex) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isDarkReading) Color(0xFF2C2C2E) else Color(0xFFF1F5F9),
-                                contentColor = MidnightIndigo
-                            ),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                            shape = RoundedCornerShape(10.dp),
+                        Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(32.dp)
+                                .clip(RoundedCornerShape(NovaTokens.Radius.sm))
+                                .background(if (isDarkReading) neonColor.copy(alpha = 0.15f) else neonColor.copy(alpha = 0.08f))
+                                .border(1.dp, neonColor.copy(alpha = 0.3f), RoundedCornerShape(NovaTokens.Radius.sm))
+                                .clickable { onRotate(originalIndex) },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Rotate 🔄", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "Rotate 🔄", 
+                                style = NovaTypography.tagMono.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = neonColor)
+                            )
                         }
+                        
                         Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = { onDelete(listIndex) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFFFEAEA),
-                                contentColor = Color.Red
-                            ),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                            shape = RoundedCornerShape(10.dp),
+                        
+                        Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(32.dp)
+                                .clip(RoundedCornerShape(NovaTokens.Radius.sm))
+                                .background(NovaError.copy(alpha = 0.08f))
+                                .border(1.dp, NovaError.copy(alpha = 0.3f), RoundedCornerShape(NovaTokens.Radius.sm))
+                                .clickable { onDelete(listIndex) },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Delete 🗑️", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "Delete 🗑️", 
+                                style = NovaTypography.tagMono.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = NovaError)
+                            )
                         }
                     }
                 }
@@ -698,22 +692,6 @@ fun PdfPagesGrid(
         }
     }
 }
-
-// Helper graphics layer modifier for Compose transformation API support
-private fun Modifier.graphicsLayer(
-    scaleX: Float,
-    scaleY: Float,
-    translationX: Float,
-    translationY: Float
-): Modifier = this.then(
-    Modifier.pointerInput(Unit) {}
-        .graphicsLayer(
-            scaleX = scaleX,
-            scaleY = scaleY,
-            translationX = translationX,
-            translationY = translationY
-        )
-)
 
 // ─────────────────────────────────────────────────────────
 //  Fullscreen Canvas Drawing & Annotation Dialog
@@ -724,15 +702,17 @@ fun PdfDrawAnnotationDialog(
     file: File,
     pageIndex: Int,
     onDismiss: () -> Unit,
-    onSave: (Bitmap) -> Unit
+    onSave: (Bitmap) -> Unit,
+    neonColor: Color
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
+    val isDark = isSystemInDarkTheme()
     var pageBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var scaleFactor by remember { mutableStateOf(1f) }
 
     // Touch drawing points
     val drawPoints = remember { mutableStateListOf<DrawPoint>() }
-    var brushColor by remember { mutableStateOf(Color.Blue) }
+    var brushColor by remember { mutableStateOf(neonColor) }
     var brushSize by remember { mutableStateOf(6f) }
 
     // Text annotation state
@@ -760,21 +740,18 @@ fun PdfDrawAnnotationDialog(
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text("Sign / Draw Page", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        TextButton(onClick = onDismiss) { Text("Cancel", color = Color.Red) }
-                    },
+                NovaTopBar(
+                    title = "SIGN & ANNOTATE PAGE",
+                    onBack = onDismiss,
+                    neonAccent = neonColor,
                     actions = {
                         TextButton(
                             onClick = {
                                 val baseBmp = pageBitmap ?: return@TextButton
                                 // Flatten drawing paths + text directly onto the annotation layer bitmap
-                                // Create transparent overlay of the exact page size
                                 val annotationBmp = Bitmap.createBitmap(baseBmp.width, baseBmp.height, Bitmap.Config.ARGB_8888)
                                 val canvas = Canvas(annotationBmp)
                                 
-                                // Draw user paths
                                 val paint = Paint().apply {
                                     style = Paint.Style.STROKE
                                     strokeCap = Paint.Cap.ROUND
@@ -799,7 +776,7 @@ fun PdfDrawAnnotationDialog(
                                 // Draw Text Overlay if any
                                 if (textAnnotation.isNotBlank()) {
                                     val textPaint = Paint().apply {
-                                        color = android.graphics.Color.BLUE
+                                        color = android.graphics.Color.argb(255, (neonColor.red * 255).toInt(), (neonColor.green * 255).toInt(), (neonColor.blue * 255).toInt())
                                         textSize = 42f * (baseBmp.width.toFloat() / 1080f)
                                         typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
                                         isAntiAlias = true
@@ -816,27 +793,30 @@ fun PdfDrawAnnotationDialog(
                             },
                             enabled = pageBitmap != null
                         ) {
-                            Text("Save", fontWeight = FontWeight.Bold, color = MidnightIndigo)
+                            Text(
+                                text = "SAVE", 
+                                style = NovaTypography.tagMono.copy(fontWeight = FontWeight.Bold, color = neonColor)
+                            )
                         }
                     }
                 )
             },
             bottomBar = {
-                // Drawing options tool drawer (Apple-style)
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    tonalElevation = 8.dp,
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                // Futuristic bottom tool selector drawer
+                GlassCard(
+                    neonAccent = neonColor,
+                    enableGlow = false,
+                    cornerRadius = 0.dp
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(NovaTokens.Spacing.md)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Colors
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val colors = listOf(Color.Blue, Color.Black, Color.Red)
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                val colors = listOf(neonColor, NovaError, if (isDark) NovaFrostWhite else NovaDeepInk)
                                 colors.forEach { col ->
                                     val isSelected = brushColor == col
                                     Box(
@@ -846,43 +826,73 @@ fun PdfDrawAnnotationDialog(
                                             .background(col)
                                             .border(
                                                 width = if (isSelected) 3.dp else 0.dp,
-                                                color = if (isSelected) MidnightIndigo else Color.Transparent,
+                                                color = if (isSelected) (if (isDark) Color.White else Color.Black) else Color.Transparent,
                                                 shape = CircleShape
                                             )
-                                            .clickable { brushColor = col }
+                                            .clickable { 
+                                                NovaHaptics.click(view)
+                                                brushColor = col 
+                                            }
                                     )
                                 }
                             }
                             
-                            // Add Text annotation action
-                            Button(
-                                onClick = { showTextInput = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF2F2F7), contentColor = MidnightIndigo)
-                            ) {
-                                Text("✍️ Add Text", fontSize = 12.sp)
-                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                // Add Text annotation action
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(NovaTokens.Radius.sm))
+                                        .background(neonColor.copy(alpha = 0.08f))
+                                        .border(1.dp, neonColor.copy(alpha = 0.3f), RoundedCornerShape(NovaTokens.Radius.sm))
+                                        .clickable { 
+                                            NovaHaptics.click(view)
+                                            showTextInput = true 
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "✍️ Write Text", 
+                                        style = NovaTypography.tagMono.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = neonColor)
+                                    )
+                                }
 
-                            // Clear Canvas
-                            Button(
-                                onClick = { drawPoints.clear(); textAnnotation = "" },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFEAEA), contentColor = Color.Red)
-                            ) {
-                                Text("Clear", fontSize = 12.sp)
+                                // Clear Canvas
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(NovaTokens.Radius.sm))
+                                        .background(NovaError.copy(alpha = 0.08f))
+                                        .border(1.dp, NovaError.copy(alpha = 0.3f), RoundedCornerShape(NovaTokens.Radius.sm))
+                                        .clickable { 
+                                            NovaHaptics.warning(view)
+                                            drawPoints.clear()
+                                            textAnnotation = "" 
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "Clear All", 
+                                        style = NovaTypography.tagMono.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NovaError)
+                                    )
+                                }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(NovaTokens.Spacing.sm))
 
                         // Brush Size Slider
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Brush Size: ${brushSize.toInt()}", fontSize = 12.sp, color = Color.Gray)
+                            Text(
+                                text = "Brush Vector Size: ${brushSize.toInt()}", 
+                                style = NovaTypography.tagMono.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Spacer(modifier = Modifier.width(16.dp))
-                            Slider(
+                            NovaSlider(
                                 value = brushSize,
                                 onValueChange = { brushSize = it },
                                 valueRange = 2f..24f,
-                                modifier = Modifier.weight(1f),
-                                colors = SliderDefaults.colors(thumbColor = MidnightIndigo, activeTrackColor = MidnightIndigo)
+                                neonColor = neonColor,
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
@@ -893,7 +903,7 @@ fun PdfDrawAnnotationDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(Color(0xFFE2E8F0)),
+                    .background(if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)),
                 contentAlignment = Alignment.Center
             ) {
                 val base = pageBitmap
@@ -906,13 +916,11 @@ fun PdfDrawAnnotationDialog(
                         modifier = Modifier
                             .width(drawWidth)
                             .height(drawHeight)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(NovaTokens.Radius.md))
                             .background(Color.White)
                             .pointerInput(Unit) {
                                 detectDragGestures { change, dragAmount ->
                                     change.consume()
-                                    // Map coordinates relative to the canvas rendering
-                                    // Canvas display is scaled to 1080 width base to easily store coordinates
                                     val scaleX = 1080f / size.width.toFloat()
                                     val scaleY = (1080f * aspectRatio) / size.height.toFloat()
                                     
@@ -926,6 +934,7 @@ fun PdfDrawAnnotationDialog(
                                     )
                                 }
                             }
+                            .border(1.dp, neonColor.copy(alpha = 0.3f), RoundedCornerShape(NovaTokens.Radius.md))
                     ) {
                         // Render underlying PDF Page
                         Image(
@@ -946,12 +955,11 @@ fun PdfDrawAnnotationDialog(
                                 )
                             }
 
-                            // Render text overlay if position is active
+                            // Render text overlay pointer if active
                             if (textAnnotation.isNotBlank()) {
                                 val tx = textPosition.x * (size.width / 1080f)
                                 val ty = textPosition.y * (size.height / (1080f * aspectRatio))
-                                
-                                drawCircle(color = Color.Blue, radius = 4f, center = Offset(tx, ty))
+                                drawCircle(color = neonColor, radius = 4f, center = Offset(tx, ty))
                             }
                         }
 
@@ -973,16 +981,20 @@ fun PdfDrawAnnotationDialog(
                                             )
                                         }
                                     }
-                                    .background(Color.Blue.copy(alpha = 0.15f))
-                                    .border(0.5.dp, Color.Blue, RoundedCornerShape(4.dp))
-                                    .padding(4.dp)
+                                    .background(neonColor.copy(alpha = 0.15f))
+                                    .border(1.dp, neonColor, RoundedCornerShape(4.dp))
+                                    .padding(6.dp)
                             ) {
-                                Text(textAnnotation, color = Color.Blue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = textAnnotation, 
+                                    color = neonColor, 
+                                    style = NovaTypography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                )
                             }
                         }
                     }
                 } else {
-                    CircularProgressIndicator(color = MidnightIndigo)
+                    CircularProgressIndicator(color = neonColor)
                 }
             }
         }
@@ -992,19 +1004,39 @@ fun PdfDrawAnnotationDialog(
     if (showTextInput) {
         AlertDialog(
             onDismissRequest = { showTextInput = false },
-            title = { Text("Add Text Overlay") },
+            title = { 
+                Text(
+                    text = "Add Signature Text", 
+                    style = NovaTypography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = neonColor)
+                ) 
+            },
             text = {
-                OutlinedTextField(
-                    value = textAnnotation,
-                    onValueChange = { textAnnotation = it },
-                    placeholder = { Text("Type text/signature here…") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Type text below, then drag it onto the desired coordinate position on the page canvas.",
+                        style = NovaTypography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    NovaTextField(
+                        value = textAnnotation,
+                        onValueChange = { textAnnotation = it },
+                        placeholder = "Type signature text...",
+                        singleLine = true,
+                        neonColor = neonColor
+                    )
+                }
             },
             confirmButton = {
-                TextButton(onClick = { showTextInput = false }) { Text("Done", fontWeight = FontWeight.Bold) }
-            }
+                NovaPrimaryButton(
+                    text = "Apply Text",
+                    neonColor = neonColor,
+                    onClick = { showTextInput = false }
+                )
+            },
+            containerColor = if (isDark) NovaMidnightBlue else Color.White,
+            shape = RoundedCornerShape(NovaTokens.Radius.lg),
+            modifier = Modifier.border(1.dp, neonColor.copy(alpha = 0.2f), RoundedCornerShape(NovaTokens.Radius.lg))
         )
     }
 }

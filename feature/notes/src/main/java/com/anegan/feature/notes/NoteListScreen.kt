@@ -10,41 +10,27 @@
 package com.anegan.feature.notes
 
 import android.content.Context
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.MoreVert
-import android.widget.Toast
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -54,12 +40,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
+import com.anegan.core.designsystem.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import org.json.JSONArray
@@ -265,6 +252,7 @@ fun NoteListScreen(
     onOpenNote: (String?) -> Unit
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val haptic = LocalHapticFeedback.current
 
     // ── state ────────────────────────────────────────────────────────────────
@@ -313,7 +301,7 @@ fun NoteListScreen(
     if (noteToDelete != null) {
         AlertDialog(
             onDismissRequest = { noteToDelete = null },
-            title = { Text("Delete Note") },
+            title = { Text("Delete Note", color = NeonGold, fontWeight = FontWeight.Bold) },
             text  = { Text("Are you sure you want to permanently delete \"${noteToDelete!!.title.ifBlank { "Untitled" }}\"?") },
             confirmButton = {
                 TextButton(onClick = {
@@ -321,7 +309,7 @@ fun NoteListScreen(
                     notes = deleteNote(context, noteToDelete!!.id)
                     noteToDelete = null
                 }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -335,7 +323,7 @@ fun NoteListScreen(
     if (showImportDialog) {
         AlertDialog(
             onDismissRequest = { showImportDialog = false },
-            title = { Text("Select Backup to Import") },
+            title = { Text("Select Backup to Import", color = NeonGold, fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     backupFilesToSelect.forEach { file ->
@@ -358,7 +346,7 @@ fun NoteListScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium
                         )
-                        Divider()
+                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                     }
                 }
             },
@@ -368,65 +356,45 @@ fun NoteListScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            if (isSearching) {
-                // ── Search bar replaces top bar ──────────────────────────────
-                TopAppBar(
-                    title = {
-                        TextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search second brain…") },
-                            singleLine = true,
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor   = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor   = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            isSearching = false
-                            searchQuery = ""
-                        }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Close search")
-                        }
-                    },
-                    actions = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear")
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                )
-            } else {
-                // ── Normal top bar ───────────────────────────────────────────
-                TopAppBar(
-                    title = {
-                        Text(
-                            text  = "Second Brain 🧠",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MidnightIndigo
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                imageVector        = Icons.Default.ArrowBack,
-                                contentDescription = "Back",
-                                tint               = MidnightIndigo
+    NovaBackground {
+        Scaffold(
+            topBar = {
+                if (isSearching) {
+                    TopAppBar(
+                        title = {
+                            NovaTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = "Search second brain…",
+                                neonColor = NeonGold,
+                                leadingIcon = Icons.Rounded.Search,
+                                trailingIcon = Icons.Rounded.Close,
+                                onTrailingClick = {
+                                    searchQuery = ""
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(end = 12.dp)
                             )
-                        }
-                    },
-                    actions = {
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                isSearching = false
+                                searchQuery = ""
+                            }) {
+                                Icon(Icons.Rounded.ArrowBackIosNew, contentDescription = "Close search", tint = NeonGold)
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent
+                        )
+                    )
+                } else {
+                    NovaTopBar(
+                        title = "Second Brain 🧠",
+                        onBack = onBack,
+                        neonAccent = NeonGold
+                    ) {
                         // Slider view toggle between list and graph
                         TextButton(
                             onClick = {
@@ -436,24 +404,24 @@ fun NoteListScreen(
                         ) {
                             Text(
                                 text = if (showGraph) "📄 List" else "🌐 Graph",
-                                color = MidnightIndigo,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
+                                color = NeonGold,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
                             )
                         }
                         IconButton(onClick = { isSearching = true }) {
                             Icon(
-                                imageVector        = Icons.Default.Search,
+                                imageVector        = Icons.Rounded.Search,
                                 contentDescription = "Search",
-                                tint               = MidnightIndigo
+                                tint               = NeonGold
                             )
                         }
                         var showMenu by remember { mutableStateOf(false) }
                         IconButton(onClick = { showMenu = true }) {
                             Icon(
-                                imageVector        = Icons.Default.MoreVert,
+                                imageVector        = Icons.Rounded.MoreVert,
                                 contentDescription = "More options",
-                                tint               = MidnightIndigo
+                                tint               = NeonGold
                             )
                         }
                         DropdownMenu(
@@ -493,147 +461,119 @@ fun NoteListScreen(
                                 }
                             )
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                )
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick            = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onOpenNote(null)
-                },
-                containerColor     = MidnightIndigo,
-                contentColor       = Color.White,
-                shape              = CircleShape
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "New Note")
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            if (!showGraph) {
-                // ── PARA Folders / Notebook chips row ──────────────────────────────
-                LazyRow(
-                    contentPadding        = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(PARAFolder.values()) { folder ->
-                        FilterChip(
-                            selected = activeFolder == folder,
-                            onClick  = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                activeFolder = folder
-                            },
-                            label    = { Text("${folder.emoji} ${folder.label}") },
-                            colors   = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor    = MidnightIndigo,
-                                selectedLabelColor        = Color.White,
-                                containerColor            = MaterialTheme.colorScheme.surface,
-                                labelColor                = MaterialTheme.colorScheme.onSurface
-                            ),
-                            shape = RoundedCornerShape(16.dp)
-                        )
                     }
                 }
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick            = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onOpenNote(null)
+                    },
+                    containerColor     = NeonGold,
+                    contentColor       = NovaDeepInk,
+                    shape              = CircleShape,
+                    modifier = Modifier.neonGlow(NeonGold, alpha = 0.3f, radiusMultiplier = 0.7f)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "New Note")
+                }
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
 
-                // ── Hashtags row ─────────────────────────────────────────────────────
-                if (allTags.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                if (!showGraph) {
+                    // ── PARA Folders / Notebook chips row ──────────────────────────────
                     LazyRow(
-                        contentPadding        = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        contentPadding        = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(allTags) { tag ->
-                            val isSelected = selectedTag == tag
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) MidnightIndigo.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, if (isSelected) MidnightIndigo else Color.LightGray.copy(alpha = 0.5f)),
-                                modifier = Modifier.clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    selectedTag = if (isSelected) null else tag
-                                }
-                            ) {
-                                Text(
+                        items(PARAFolder.values()) { folder ->
+                            NovaChip(
+                                text = "${folder.emoji} ${folder.label}",
+                                selected = activeFolder == folder,
+                                onClick = {
+                                    activeFolder = folder
+                                },
+                                neonColor = NeonGold
+                            )
+                        }
+                    }
+
+                    // ── Hashtags row ─────────────────────────────────────────────────────
+                    if (allTags.isNotEmpty()) {
+                        LazyRow(
+                            contentPadding        = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(allTags) { tag ->
+                                val isSelected = selectedTag == tag
+                                NovaChip(
                                     text = "#$tag",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (isSelected) MidnightIndigo else Color.Gray,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                    selected = isSelected,
+                                    onClick = {
+                                        selectedTag = if (isSelected) null else tag
+                                    },
+                                    neonColor = NeonGold
                                 )
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                // ── Content List ──────────────────────────────────────────────────────
-                AnimatedVisibility(
-                    visible = displayedNotes.isEmpty(),
-                    enter   = fadeIn(),
-                    exit    = fadeOut(),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Box(
-                        modifier        = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "📝", fontSize = 56.sp)
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                text  = if (searchQuery.isNotBlank() || selectedTag != null) "No second brain notes match selection."
-                                        else "No notes yet. Tap + to spawn a note.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    // ── Content List ──────────────────────────────────────────────────────
+                    if (displayedNotes.isEmpty()) {
+                        Box(
+                            modifier        = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            NovaEmptyState(
+                                icon = Icons.Rounded.EditNote,
+                                title = "Second Brain Empty",
+                                subtitle = if (searchQuery.isNotBlank() || selectedTag != null) "No notes match active search query or filters."
+                                           else "No notes yet. Tap the action button to spawn a note.",
+                                neonColor = NeonGold
                             )
                         }
-                    }
-                }
-
-                AnimatedVisibility(
-                    visible = displayedNotes.isNotEmpty(),
-                    enter   = fadeIn(),
-                    exit    = fadeOut(),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    LazyColumn(
-                        contentPadding        = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement   = Arrangement.spacedBy(10.dp),
-                        modifier              = Modifier.fillMaxSize()
-                    ) {
-                        items(
-                            items = displayedNotes,
-                            key   = { it.id }
-                        ) { note ->
-                            NoteCard(
-                                note         = note,
-                                onClick      = { onOpenNote(note.id) },
-                                onLongClick  = { noteToDelete = note },
-                                modifier     = Modifier.animateItemPlacement()
-                            )
+                    } else {
+                        LazyColumn(
+                            contentPadding        = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement   = Arrangement.spacedBy(12.dp),
+                            modifier              = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) {
+                            itemsIndexed(
+                                items = displayedNotes,
+                                key   = { _, item -> item.id }
+                            ) { index, note ->
+                                NovaAnimatedItem(index = index) {
+                                    NoteCard(
+                                        note         = note,
+                                        onClick      = { onOpenNote(note.id) },
+                                        onLongClick  = { noteToDelete = note }
+                                    )
+                                }
+                            }
+                            // Extra bottom padding for FAB
+                            item { Spacer(Modifier.height(72.dp)) }
                         }
-                        // Extra bottom padding for FAB
-                        item { Spacer(Modifier.height(72.dp)) }
                     }
+                } else {
+                    // ── Interactive Force-directed Brain Graph ────────────────────────────────────
+                    BrainGraphView(
+                        notes = notes.filter { !it.isArchived },
+                        onOpenNote = onOpenNote,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-            } else {
-                // ── Interactive Force-directed Brain Graph ────────────────────────────────────
-                BrainGraphView(
-                    notes = notes.filter { !it.isArchived },
-                    onOpenNote = onOpenNote,
-                    modifier = Modifier.weight(1f)
-                )
             }
         }
     }
@@ -654,136 +594,153 @@ fun NoteCard(
     val labelColor = NOTE_LABEL_COLORS[note.colorLabel] ?: Color.Transparent
     val hasColor   = note.colorLabel != "None"
 
-    val cardBackground = if (hasColor) labelColor.copy(alpha = 0.18f)
-                         else MaterialTheme.colorScheme.surface
-
     val dateString = remember(note.updatedAt) {
         val sdf = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
         sdf.format(Date(note.updatedAt))
     }
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick     = onClick,
-                onLongClick = onLongClick
-            ),
-        shape  = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    GlassCard(
+        modifier = modifier.fillMaxWidth(),
+        neonAccent = if (hasColor) labelColor else Color.Transparent,
+        onClick = onClick,
+        cornerRadius = NovaTokens.Radius.lg
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier            = Modifier.fillMaxWidth(),
-                verticalAlignment   = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Title
-                Text(
-                    text       = note.title.ifBlank { "Untitled" },
-                    style      = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color      = MaterialTheme.colorScheme.onSurface,
-                    maxLines   = 1,
-                    overflow   = TextOverflow.Ellipsis,
-                    modifier   = Modifier.weight(1f)
+        // combinedClickable workaround inside GlassCard - using Box overlay
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
                 )
+                .padding(14.dp)
+        ) {
+            Column {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment     = Alignment.CenterVertically
+                    modifier            = Modifier.fillMaxWidth(),
+                    verticalAlignment   = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Color dot
-                    if (hasColor) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(labelColor)
-                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), CircleShape)
-                        )
-                    }
-                    // Pin icon
-                    if (note.isPinned) {
-                        Icon(
-                            imageVector        = Icons.Default.PushPin,
-                            contentDescription = "Pinned",
-                            tint               = MidnightIndigo,
-                            modifier           = Modifier.size(14.dp)
-                        )
-                    }
-                }
-            }
-
-            if (note.content.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                // Strip Markdown tokens from card preview to look super neat
-                val strippedContent = remember(note.content) {
-                    note.content.replace(Regex("\\[\\[(.*?)\\]\\]"), "$1")
-                        .replace(Regex("[#*`_]"), "")
-                }
-                Text(
-                    text     = strippedContent,
-                    style    = MaterialTheme.typography.bodySmall,
-                    color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Display hashtag pills inside card
-            if (note.tags.isNotEmpty()) {
-                Spacer(Modifier.height(6.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    note.tags.take(3).forEach { tag ->
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MidnightIndigo.copy(alpha = 0.05f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(text = "#$tag", fontSize = 9.sp, color = MidnightIndigo, fontWeight = FontWeight.SemiBold)
+                    // Title
+                    Text(
+                        text       = note.title.ifBlank { "Untitled" },
+                        style      = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        maxLines   = 1,
+                        overflow   = TextOverflow.Ellipsis,
+                        modifier   = Modifier.weight(1f)
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        // Color dot
+                        if (hasColor) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(labelColor)
+                                    .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), CircleShape)
+                            )
+                        }
+                        // Pin icon
+                        if (note.isPinned) {
+                            Icon(
+                                imageVector        = Icons.Rounded.PushPin,
+                                contentDescription = "Pinned",
+                                tint               = NeonGold,
+                                modifier           = Modifier.size(14.dp)
+                            )
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(8.dp))
-
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (note.content.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    // Strip Markdown tokens from card preview to look super neat
+                    val strippedContent = remember(note.content) {
+                        note.content.replace(Regex("\\[\\[(.*?)\\]\\]"), "$1")
+                            .replace(Regex("[#*`_]"), "")
+                    }
                     Text(
-                        text  = dateString,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        text     = strippedContent,
+                        style    = MaterialTheme.typography.bodySmall,
+                        color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Gray.copy(alpha = 0.08f))
-                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                }
+
+                // Display hashtag pills inside card
+                if (note.tags.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(text = note.notebook.uppercase(), fontSize = 8.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                        note.tags.take(3).forEach { tag ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(NeonGold.copy(alpha = 0.08f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "#$tag", 
+                                    fontSize = 9.sp, 
+                                    color = NeonGold, 
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FiraCodeFontFamily
+                                )
+                            }
+                        }
                     }
                 }
-                if (note.isChecklist) {
-                    Text(
-                        text  = "☑ Checklist",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MidnightIndigo.copy(alpha = 0.7f)
-                    )
-                }
-                if (note.hasReminder) {
-                    Text(
-                        text  = "🔔",
-                        style = MaterialTheme.typography.labelSmall
-                    )
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text  = dateString,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            fontFamily = FiraCodeFontFamily
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(NeonGold.copy(alpha = 0.08f))
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = note.notebook.uppercase(), 
+                                fontSize = 8.sp, 
+                                color = NeonGold, 
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FiraCodeFontFamily
+                            )
+                        }
+                    }
+                    if (note.isChecklist) {
+                        Text(
+                            text  = "☑ Checklist",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NeonGold,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (note.hasReminder) {
+                        Text(
+                            text  = "🔔",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
             }
         }
@@ -818,7 +775,6 @@ fun BrainGraphView(
 
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
-    val scope = rememberCoroutineScope()
 
     // Pan and zoom states
     var scale by remember { mutableStateOf(1f) }
@@ -922,14 +878,13 @@ fun BrainGraphView(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Color.Transparent)
     ) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(nodes) {
                     detectTapGestures { pressOffset ->
-                        // Reverse transform press position to find matching node
                         val transformedX = (pressOffset.x - panOffset.x) / scale
                         val transformedY = (pressOffset.y - panOffset.y) / scale
                         val tapped = nodes.firstOrNull { node ->
@@ -985,7 +940,7 @@ fun BrainGraphView(
                     val from = link.first
                     val to = link.second
                     drawLine(
-                        color = MidnightIndigo.copy(alpha = 0.35f),
+                        color = NeonGold.copy(alpha = 0.35f),
                         start = Offset(from.x, from.y),
                         end = Offset(to.x, to.y),
                         strokeWidth = 2.dp.toPx()
@@ -994,13 +949,13 @@ fun BrainGraphView(
 
                 // ── Draw Nodes ─────────────────────────────────────────────
                 for (node in nodes) {
-                    val labelColor = NOTE_LABEL_COLORS[node.note.colorLabel] ?: MidnightIndigo
-                    val finalNodeColor = if (node.note.colorLabel == "None") MidnightIndigo else labelColor
+                    val labelColor = NOTE_LABEL_COLORS[node.note.colorLabel] ?: NeonGold
+                    val finalNodeColor = if (node.note.colorLabel == "None") NeonGold else labelColor
                     
                     // Draw outer glowing halo if selected
                     if (selectedNode == node) {
                         drawCircle(
-                            color = finalNodeColor.copy(alpha = 0.2f),
+                            color = finalNodeColor.copy(alpha = 0.25f),
                             center = Offset(node.x, node.y),
                             radius = node.radius + 12.dp.toPx()
                         )
@@ -1015,14 +970,14 @@ fun BrainGraphView(
 
                     // Draw inner accent symbol
                     drawCircle(
-                        color = Color.White.copy(alpha = 0.5f),
+                        color = Color.White.copy(alpha = 0.6f),
                         center = Offset(node.x, node.y),
                         radius = node.radius / 2f
                     )
 
                     // Text titles next to nodes
                     val paint = android.graphics.Paint().apply {
-                        color = android.graphics.Color.DKGRAY
+                        color = android.graphics.Color.argb(220, 255, 255, 255)
                         textSize = 11.sp.toPx()
                         typeface = android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)
                     }
@@ -1041,19 +996,19 @@ fun BrainGraphView(
         // ── Selection Detail Glassmorphic shelf Card ──────────────────────────
         AnimatedVisibility(
             visible = selectedNode != null,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
         ) {
             val node = selectedNode
             if (node != null) {
-                Card(
+                GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    neonAccent = NeonGold,
+                    enableGlow = true,
+                    cornerRadius = NovaTokens.Radius.xl
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Row(
@@ -1065,35 +1020,34 @@ fun BrainGraphView(
                                 text = node.note.title.ifBlank { "Untitled" },
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MidnightIndigo,
+                                color = NeonGold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(onClick = { selectedNode = null }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = MidnightIndigo)
+                                Icon(Icons.Default.Close, contentDescription = "Close", tint = NeonGold)
                             }
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = if (node.note.content.isBlank()) "Empty Note content" else node.note.content,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(14.dp))
-                        Button(
+                        
+                        NovaPrimaryButton(
+                            text = "Open in Editor 🧠",
+                            neonColor = NeonGold,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onOpenNote(node.note.id)
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo),
-                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Open in Editor 🧠", color = Color.White)
-                        }
+                        )
                     }
                 }
             }

@@ -21,16 +21,21 @@ import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,15 +44,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import com.anegan.core.designsystem.theme.MidnightIndigo
-import com.anegan.core.designsystem.theme.PureWhite
+import com.anegan.core.designsystem.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -88,15 +91,46 @@ fun ApkToolsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
+    
+    val prefs = remember { context.getSharedPreferences("anegan_doc_reader", Context.MODE_PRIVATE) }
     
     var appsList by remember { mutableStateOf(listOf<InstalledApp>()) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("User Apps") } // "User Apps", "System Apps", "All"
-    
+    var currentTab by remember { mutableStateOf(0) } // 0 = Installed Apps, 1 = Extracted Backups
+    var showHowItWorks by remember { mutableStateOf(false) }
+
     // Asynchronous extract loader
     var extractingAppName by remember { mutableStateOf<String?>(null) }
+
+    data class ExtractedApk(
+        val name: String,
+        val file: File,
+        val size: Long
+    )
+    
+    var extractedApks by remember { mutableStateOf(listOf<ExtractedApk>()) }
+
+    fun loadExtractedApks() {
+        scope.launch(Dispatchers.IO) {
+            val targetDir = File(Environment.getExternalStorageDirectory(), "Anegan/APKs")
+            if (!targetDir.exists()) targetDir.mkdirs()
+            val files = targetDir.listFiles()?.filter { it.isFile && it.extension.lowercase(Locale.ROOT) == "apk" } ?: emptyList()
+            val temp = files.map { file ->
+                ExtractedApk(
+                    name = file.name,
+                    file = file,
+                    size = file.length()
+                )
+            }.sortedByDescending { it.file.lastModified() }
+            
+            withContext(Dispatchers.Main) {
+                extractedApks = temp
+            }
+        }
+    }
 
     fun loadApps() {
         isLoading = true
@@ -140,6 +174,7 @@ fun ApkToolsScreen(
 
     LaunchedEffect(Unit) {
         loadApps()
+        loadExtractedApks()
     }
 
     BackHandler {
@@ -147,14 +182,13 @@ fun ApkToolsScreen(
     }
 
     fun extractApk(app: InstalledApp) {
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        NovaHaptics.longPress(view)
         extractingAppName = app.name
         
         scope.launch(Dispatchers.IO) {
             try {
                 val sourceFile = File(app.sourceDir)
-                val publicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val targetDir = File(publicDir, "Anegan/ApkBackups")
+                val targetDir = File(Environment.getExternalStorageDirectory(), "Anegan/APKs")
                 if (!targetDir.exists()) targetDir.mkdirs()
                 
                 val cleanName = app.name.replace("[^a-zA-Z0-9]".toRegex(), "_")
@@ -168,38 +202,28 @@ fun ApkToolsScreen(
                 
                 withContext(Dispatchers.Main) {
                     extractingAppName = null
-                    Toast.makeText(context, "Extracted successfully to Downloads/Anegan/ApkBackups!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Extracted to Anegan/APKs!", Toast.LENGTH_SHORT).show()
+                    NovaHaptics.success(view)
+                    loadExtractedApks()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     extractingAppName = null
                     Toast.makeText(context, "Extraction failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    NovaHaptics.reject(view)
                 }
             }
         }
     }
 
-    fun shareApk(app: InstalledApp) {
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    fun shareExtractedApk(file: File) {
+        NovaHaptics.longPress(view)
         scope.launch(Dispatchers.IO) {
             try {
-                val sourceFile = File(app.sourceDir)
-                val tempDir = File(context.cacheDir, "shared_apks")
-                if (!tempDir.exists()) tempDir.mkdirs()
-                
-                val cleanName = app.name.replace("[^a-zA-Z0-9]".toRegex(), "_")
-                val targetFile = File(tempDir, "${cleanName}_${app.versionName}.apk")
-                
-                FileInputStream(sourceFile).use { input ->
-                    FileOutputStream(targetFile).use { output ->
-                        input.copyTo(output)
-                    }
-                }
+                val authority = "${context.packageName}.fileprovider"
+                val fileUri: Uri = FileProvider.getUriForFile(context, authority, file)
                 
                 withContext(Dispatchers.Main) {
-                    val authority = "${context.packageName}.fileprovider"
-                    val fileUri: Uri = FileProvider.getUriForFile(context, authority, targetFile)
-                    
                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                         type = "application/vnd.android.package-archive"
                         putExtra(Intent.EXTRA_STREAM, fileUri)
@@ -212,6 +236,18 @@ fun ApkToolsScreen(
                     Toast.makeText(context, "Sharing failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    fun deleteExtractedApk(file: File) {
+        NovaHaptics.longPress(view)
+        if (file.delete()) {
+            Toast.makeText(context, "Deleted successfully", Toast.LENGTH_SHORT).show()
+            NovaHaptics.success(view)
+            loadExtractedApks()
+        } else {
+            Toast.makeText(context, "Delete failed", Toast.LENGTH_SHORT).show()
+            NovaHaptics.reject(view)
         }
     }
 
@@ -228,190 +264,247 @@ fun ApkToolsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "APK Extractor & Backup",
-                            style = MaterialTheme.typography.displayLarge.copy(fontSize = 22.sp),
-                            color = MidnightIndigo
-                        )
-                        Text("Extract or backup your installed apps instantly", color = Color.Gray, fontSize = 10.sp)
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Text("←", fontSize = 24.sp, color = MidnightIndigo, fontWeight = FontWeight.Bold)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            // Search Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MidnightIndigo.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+    val isDark = isSystemInDarkTheme()
+
+    NovaBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                NovaTopBar(
+                    title = "APK Extractor & Backup",
+                    onBack = onBack,
+                    neonAccent = NeonPurple,
+                    showHowItWorks = true,
+                    onHowItWorks = { showHowItWorks = true }
+                )
+            }
+        ) { innerPadding ->
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
             ) {
-                Text("🔍", fontSize = 16.sp)
-                Spacer(modifier = Modifier.width(12.dp))
-                Box(modifier = Modifier.weight(1f)) {
-                    if (searchQuery.isEmpty()) {
-                        Text("Search installed apps...", color = Color.Gray, fontSize = 14.sp)
-                    }
-                    androidx.compose.foundation.text.BasicTextField(
+                // Futuristic NovaSegmentedControl replacing native TabRow
+                val tabs = remember { listOf("INSTALLED APPS", "EXTRACTED APKS") }
+                NovaSegmentedControl(
+                    items = tabs,
+                    selectedIndex = currentTab,
+                    onIndexSelected = { idx ->
+                        NovaHaptics.click(view)
+                        currentTab = idx
+                    },
+                    neonColor = NeonPurple,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                if (currentTab == 0) {
+                    // Futuristic Search Input
+                    NovaTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        placeholder = "Search installed apps...",
+                        neonColor = NeonPurple,
+                        leadingIcon = Icons.Rounded.Search,
+                        trailingIcon = if (searchQuery.isNotEmpty()) Icons.Rounded.Close else null,
+                        onTrailingClick = {
+                            NovaHaptics.click(view)
+                            searchQuery = ""
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
                     )
-                }
-                if (searchQuery.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .clickable { 
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                searchQuery = "" 
-                            }
-                            .padding(4.dp)
-                    ) {
-                        Text("❌", fontSize = 11.sp)
-                    }
-                }
-            }
 
-            // Filter Row
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                val filters = listOf("User Apps", "System Apps", "All")
-                items(filters) { filter ->
-                    val isSelected = selectedFilter == filter
+                    // Categories/Filters Row
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val filters = listOf("User Apps", "System Apps", "All")
+                        items(filters) { filter ->
+                            val isSelected = selectedFilter == filter
+                            NovaChip(
+                                text = filter,
+                                selected = isSelected,
+                                onClick = {
+                                    NovaHaptics.toggle(view)
+                                    selectedFilter = filter
+                                },
+                                neonColor = NeonPurple
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.surface)
-                            .clickable { selectedFilter = filter }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                            .fillMaxSize()
+                            .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = filter,
-                            color = if (isSelected) PureWhite else MidnightIndigo,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
-
-            Divider(color = Color.LightGray.copy(alpha = 0.3f), modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
-
-            Box(
-                modifier = Modifier.fillMaxSize().weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = MidnightIndigo)
-                } else if (filteredApps.isEmpty()) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        Text("📦", fontSize = 48.sp)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "No apps found",
-                            fontWeight = FontWeight.Bold,
-                            color = MidnightIndigo,
-                            fontSize = 16.sp
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(color = NeonPurple)
+                        } else if (filteredApps.isEmpty()) {
+                            NovaEmptyState(
+                                icon = Icons.Rounded.GetApp,
+                                title = "No Apps Found",
+                                subtitle = "Adjust your filters or query to locate installed applications.",
+                                neonColor = NeonPurple
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                itemsIndexed(filteredApps) { index, app ->
+                                    val appIcon = remember(app.drawable) {
+                                        app.drawable.toBitmap().asImageBitmap()
+                                    }
+                                    val sdf = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
+                                    val dateString = remember(app.installDate) { sdf.format(Date(app.installDate)) }
+                                    
+                                    NovaAnimatedItem(index = index) {
+                                        GlassCard(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            neonAccent = NeonPurple.copy(alpha = 0.3f)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Image(
+                                                    bitmap = appIcon,
+                                                    contentDescription = null,
+                                                    modifier = Modifier
+                                                        .size(44.dp)
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = app.name,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isDark) NovaFrostWhite else NovaDeepInk,
+                                                        fontSize = 13.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Text(
+                                                        text = "v${app.versionName} • ${app.packageName}",
+                                                        color = if (isDark) NovaFrostWhite.copy(alpha = 0.6f) else NovaDeepInk.copy(alpha = 0.5f),
+                                                        fontSize = 10.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    val sizeMb = app.size / (1024f * 1024f)
+                                                    Text(
+                                                        text = String.format(Locale.ROOT, "%.2f MB • Installed: %s", sizeMb, dateString),
+                                                        color = if (isDark) NovaFrostWhite.copy(alpha = 0.5f) else NovaDeepInk.copy(alpha = 0.4f),
+                                                        fontFamily = JetBrainsMono,
+                                                        fontSize = 9.sp
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                IconButton(
+                                                    onClick = { extractApk(app) },
+                                                    modifier = Modifier.size(44.dp)
+                                                ) {
+                                                    Text("📥", fontSize = 20.sp)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
                     ) {
-                        items(filteredApps) { app ->
-                            val appIcon = remember(app.drawable) {
-                                app.drawable.toBitmap().asImageBitmap()
-                            }
-                            val sdf = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
-                            val dateString = remember(app.installDate) { sdf.format(Date(app.installDate)) }
-                            
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        if (extractedApks.isEmpty()) {
+                            NovaEmptyState(
+                                icon = Icons.Rounded.FolderZip,
+                                title = "No Extracted APKs",
+                                subtitle = "Extracted backups will appear here for sharing or reinstalling.",
+                                neonColor = NeonPurple
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Image(
-                                        bitmap = appIcon,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = app.name,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MidnightIndigo,
-                                            fontSize = 13.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = "v${app.versionName} • ${app.packageName}",
-                                            color = Color.Gray,
-                                            fontSize = 10.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        val sizeMb = app.size / (1024f * 1024f)
-                                        Text(
-                                            text = String.format(Locale.ROOT, "%.2f MB • Installed: %s", sizeMb, dateString),
-                                            color = Color.Gray,
-                                            fontSize = 9.sp
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        IconButton(
-                                            onClick = { extractApk(app) },
-                                            modifier = Modifier.size(36.dp)
+                                itemsIndexed(extractedApks) { index, extracted ->
+                                    NovaAnimatedItem(index = index) {
+                                        GlassCard(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            neonAccent = NeonPurple.copy(alpha = 0.3f)
                                         ) {
-                                            Text("📥", fontSize = 18.sp)
-                                        }
-                                        IconButton(
-                                            onClick = { shareApk(app) },
-                                            modifier = Modifier.size(36.dp)
-                                        ) {
-                                            Text("📤", fontSize = 18.sp)
+                                            Row(
+                                                modifier = Modifier.padding(14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(44.dp)
+                                                        .clip(CircleShape)
+                                                        .background(NeonPurple.copy(alpha = 0.12f))
+                                                        .border(BorderStroke(1.dp, NeonPurple.copy(alpha = 0.3f)), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text("📦", fontSize = 20.sp)
+                                                }
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = extracted.name,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isDark) NovaFrostWhite else NovaDeepInk,
+                                                        fontSize = 13.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    val sizeMb = extracted.size / (1024f * 1024f)
+                                                    Text(
+                                                        text = String.format(Locale.ROOT, "%.2f MB", sizeMb),
+                                                        color = if (isDark) NovaFrostWhite.copy(alpha = 0.6f) else NovaDeepInk.copy(alpha = 0.5f),
+                                                        fontFamily = JetBrainsMono,
+                                                        fontSize = 10.sp
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    IconButton(
+                                                        onClick = { shareExtractedApk(extracted.file) },
+                                                        modifier = Modifier.size(44.dp)
+                                                    ) {
+                                                        Text("📤", fontSize = 20.sp)
+                                                    }
+                                                    IconButton(
+                                                        onClick = { deleteExtractedApk(extracted.file) },
+                                                        modifier = Modifier.size(44.dp)
+                                                    ) {
+                                                        Text("🗑️", fontSize = 20.sp)
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -421,30 +514,64 @@ fun ApkToolsScreen(
                 }
             }
 
-            // Global loading dialog during extraction (placed in ColumnScope)
+            // Global loading dialog during extraction styled elegantly in V3.2
             AnimatedVisibility(visible = extractingAppName != null) {
                 val name = extractingAppName ?: ""
                 AlertDialog(
                     onDismissRequest = {},
-                    title = { Text("Extracting Backup", fontWeight = FontWeight.Bold, color = MidnightIndigo) },
+                    title = { 
+                        Text(
+                            text = "Extracting Backup", 
+                            fontFamily = SpaceGrotesk,
+                            fontWeight = FontWeight.Bold, 
+                            color = if (isDark) NovaFrostWhite else NovaDeepInk
+                        ) 
+                    },
                     text = {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CircularProgressIndicator(color = MidnightIndigo, modifier = Modifier.size(36.dp))
+                            CircularProgressIndicator(color = NeonPurple, modifier = Modifier.size(36.dp))
                             Spacer(modifier = Modifier.width(16.dp))
                             Text(
                                 text = "Backing up $name...",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MidnightIndigo
+                                color = if (isDark) NovaFrostWhite else NovaDeepInk
                             )
                         }
                     },
-                    confirmButton = {}
+                    confirmButton = {},
+                    containerColor = if (isDark) NovaMidnightBlue else NovaPureWhite,
+                    shape = RoundedCornerShape(24.dp)
                 )
             }
         }
+    }
+
+    if (showHowItWorks) {
+        com.anegan.core.designsystem.theme.HowItWorksDialog(
+            title = "App Extractor",
+            description = "Extracts installed apps on your device into standalone APK installer files for sharing or backing up offline.",
+            steps = listOf(
+                "In the 'Installed Apps' tab, browse or search for the app you want to back up.",
+                "Tap the download icon (📥) next to the app to start extraction.",
+                "The extracted APK file will be saved to your device's internal storage under /Anegan/APKs/.",
+                "Switch to the 'Extracted APKs' tab to see all your extracted backups.",
+                "From the 'Extracted APKs' tab, tap the share icon (📤) to send the APK to another device, or tap the delete icon (🗑️) to remove it."
+            ),
+            tips = listOf(
+                "System apps are listed in a separate filter and can also be extracted, though some pre-installed system apps may require their dependencies to work elsewhere.",
+                "Sharing large APKs might take longer. Use Wifi Transfer or Local Transfer for faster speeds."
+            ),
+            faq = listOf(
+                "Where are my extracted APKs stored?" to "They are stored in the public folder '/Anegan/APKs/' on your internal storage so they can be easily moved or copied.",
+                "Will extracting an app uninstall it?" to "No. Extraction only copies the app's base package to create a backup; the installed app remains intact on your device."
+            ),
+            onDismiss = { showHowItWorks = false }
+        )
     }
 }

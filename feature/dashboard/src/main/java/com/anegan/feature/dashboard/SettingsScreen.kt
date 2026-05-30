@@ -14,6 +14,8 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -23,18 +25,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
-import com.anegan.core.designsystem.theme.PureWhite
-import com.anegan.core.designsystem.theme.LuminousGlow
-import androidx.compose.ui.text.font.FontFamily
-import com.anegan.core.designsystem.theme.OutfitFontFamily
-import com.anegan.core.designsystem.theme.MontserratFontFamily
-import com.anegan.core.designsystem.theme.PlayfairFontFamily
-import com.anegan.core.designsystem.theme.FiraCodeFontFamily
+import com.anegan.core.designsystem.theme.*
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,6 +41,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val scrollState = rememberScrollState()
     val prefs = remember { context.getSharedPreferences("anegan_settings", Context.MODE_PRIVATE) }
 
@@ -79,294 +77,394 @@ fun SettingsScreen(
         updateCacheSize()
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp)
-            .verticalScroll(scrollState)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+    NovaBackground(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
         ) {
-            Text(
-                text = "← ",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo,
+            // Header
+            NovaTopBar(
+                title = "Settings",
+                onBack = onBack,
+                neonAccent = NeonGold
+            )
+
+            Column(
                 modifier = Modifier
-                    .clickable { onBack() }
-                    .padding(end = 12.dp)
-            )
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Section 1: Appearance
-        Text("🎨 Appearance", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
-        Spacer(modifier = Modifier.height(12.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Theme selection (System / Light / Dark)
-                Text("🌓 Theme Mode", fontSize = 14.sp, color = MidnightIndigo)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val themes = listOf("System", "Light", "Dark")
-                    themes.forEach { mode ->
-                        val isSelected = themeSelection == mode
-                        Button(
-                            onClick = {
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+            ) {
+                // Section 1: Appearance
+                NovaSectionHeader(
+                    title = "Appearance",
+                    neonColor = NeonGold,
+                    modifier = Modifier.padding(horizontal = 0.dp)
+                )
+                
+                GlassCard(
+                    neonAccent = NeonGold.copy(alpha = 0.2f),
+                    cornerRadius = NovaTokens.Radius.xl,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        // Theme selection (System / Light / Dark)
+                        Text(
+                            "🌓 Theme Mode", 
+                            fontSize = 13.sp, 
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        val themes = listOf("System", "Light", "Dark")
+                        NovaSegmentedControl(
+                            items = themes,
+                            selectedIndex = themes.indexOf(themeSelection),
+                            onIndexSelected = { idx ->
+                                val mode = themes[idx]
                                 themeSelection = mode
                                 prefs.edit().putString("pref_theme_mode", mode).apply()
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.background,
-                                contentColor = if (isSelected) PureWhite else MidnightIndigo
-                            ),
-                            modifier = Modifier.weight(1f)
+                            neonColor = NeonGold
+                        )
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        // Dynamic Colors Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(mode, fontSize = 12.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "🌈 Material You Dynamic Color", 
+                                    fontSize = 13.sp, 
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Adapt colors to system wallpaper (Android 12+)", 
+                                    fontSize = 10.sp, 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            NovaSwitch(
+                                checked = dynamicThemeEnabled,
+                                onCheckedChange = { checked ->
+                                    dynamicThemeEnabled = checked
+                                    prefs.edit().putBoolean("pref_dynamic_color", checked).apply()
+                                },
+                                neonColor = NeonGold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        // AMOLED Dark Mode Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "🕶️ AMOLED Dark Mode", 
+                                    fontSize = 13.sp, 
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Pure black background to save battery", 
+                                    fontSize = 10.sp, 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            NovaSwitch(
+                                checked = amoledThemeEnabled,
+                                onCheckedChange = { checked ->
+                                    amoledThemeEnabled = checked
+                                    prefs.edit().putBoolean("pref_amoled_theme", checked).apply()
+                                },
+                                neonColor = NeonGold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        // Custom Fonts Selector
+                        Text(
+                            "✍️ App Font Style", 
+                            fontSize = 13.sp, 
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        val fontOptions = listOf("Default", "Outfit", "Montserrat", "Playfair Display", "Fira Code")
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(fontOptions) { font ->
+                                val isSelected = customFontSelection == font
+                                NovaChip(
+                                    text = font,
+                                    selected = isSelected,
+                                    onClick = {
+                                        customFontSelection = font
+                                        prefs.edit().putString("pref_custom_font", font).apply()
+                                    },
+                                    neonColor = NeonGold
+                                )
+                            }
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Dynamic Colors Toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("🌈 Material You Dynamic Color", fontSize = 14.sp, color = MidnightIndigo)
-                        Text("Adapt colors to system wallpaper (Android 12+)", fontSize = 11.sp, color = Color.Gray)
-                    }
-                    Switch(
-                        checked = dynamicThemeEnabled,
-                        onCheckedChange = { checked ->
-                            dynamicThemeEnabled = checked
-                            prefs.edit().putBoolean("pref_dynamic_color", checked).apply()
-                        },
-                        colors = SwitchDefaults.colors(checkedThumbColor = MidnightIndigo, checkedTrackColor = LuminousGlow)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // AMOLED Dark Mode Toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("🕶️ AMOLED Dark Mode", fontSize = 14.sp, color = MidnightIndigo)
-                        Text("Pure black background to save battery", fontSize = 11.sp, color = Color.Gray)
-                    }
-                    Switch(
-                        checked = amoledThemeEnabled,
-                        onCheckedChange = { checked ->
-                            amoledThemeEnabled = checked
-                            prefs.edit().putBoolean("pref_amoled_theme", checked).apply()
-                        },
-                        colors = SwitchDefaults.colors(checkedThumbColor = MidnightIndigo, checkedTrackColor = LuminousGlow)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Custom Fonts Selector
-                Text("✍️ App Font Style", fontSize = 14.sp, color = MidnightIndigo)
-                Spacer(modifier = Modifier.height(8.dp))
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                // Section 2: Default Conversion
+                NovaSectionHeader(
+                    title = "Default Conversions",
+                    neonColor = NeonGold,
+                    modifier = Modifier.padding(horizontal = 0.dp)
+                )
+                
+                GlassCard(
+                    neonAccent = NeonGold.copy(alpha = 0.2f),
+                    cornerRadius = NovaTokens.Radius.xl,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    val fontOptions = listOf("Default", "Outfit", "Montserrat", "Playfair Display", "Fira Code")
-                    items(fontOptions) { font ->
-                        val isSelected = customFontSelection == font
-                        Button(
-                            onClick = {
-                                customFontSelection = font
-                                prefs.edit().putString("pref_custom_font", font).apply()
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        // Default image format
+                        Text(
+                            "🖼️ Default Image Target Format", 
+                            fontSize = 13.sp, 
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        val formats = listOf("JPG", "PNG", "WEBP")
+                        NovaSegmentedControl(
+                            items = formats,
+                            selectedIndex = formats.indexOf(defaultImgFormat),
+                            onIndexSelected = { idx ->
+                                val fmt = formats[idx]
+                                defaultImgFormat = fmt
+                                prefs.edit().putString("pref_default_img_format", fmt).apply()
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.background,
-                                contentColor = if (isSelected) PureWhite else MidnightIndigo
-                            ),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            neonColor = NeonGold
+                        )
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        // Default Quality
+                        Text(
+                            "🎯 Default Conversion Quality: $defaultQuality%", 
+                            fontSize = 13.sp, 
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        NovaSlider(
+                            value = defaultQuality.toFloat(),
+                            onValueChange = { q ->
+                                defaultQuality = q.toInt()
+                                prefs.edit().putInt("pref_default_quality", q.toInt()).apply()
+                            },
+                            valueRange = 10f..100f,
+                            neonColor = NeonGold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Section 3: Storage & Maintenance
+                NovaSectionHeader(
+                    title = "Storage & Maintenance",
+                    neonColor = NeonGold,
+                    modifier = Modifier.padding(horizontal = 0.dp)
+                )
+                
+                GlassCard(
+                    neonAccent = NeonGold.copy(alpha = 0.2f),
+                    cornerRadius = NovaTokens.Radius.xl,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Directory
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Column {
+                                Text(
+                                    "📂 Output Directory", 
+                                    fontSize = 13.sp, 
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Public downloads folder for easy user access", 
+                                    fontSize = 10.sp, 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
                             Text(
-                                text = font,
-                                fontSize = 12.sp,
-                                fontFamily = when (font) {
-                                    "Outfit" -> OutfitFontFamily
-                                    "Montserrat" -> MontserratFontFamily
-                                    "Playfair Display" -> PlayfairFontFamily
-                                    "Fira Code" -> FiraCodeFontFamily
-                                    else -> FontFamily.SansSerif
+                                "Anegan/", 
+                                fontSize = 14.sp, 
+                                fontWeight = FontWeight.Bold,
+                                color = NeonGold,
+                                fontFamily = FiraCodeFontFamily
+                            )
+                        }
+
+                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                        // Cache
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "🗑️ App Temp Cache Size", 
+                                    fontSize = 13.sp, 
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    String.format("%.2f MB cached", cacheSizeMb), 
+                                    fontSize = 11.sp, 
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonGold,
+                                    fontFamily = FiraCodeFontFamily
+                                )
+                            }
+                            
+                            NovaSecondaryButton(
+                                text = "Clear Cache",
+                                neonColor = NeonGold,
+                                onClick = {
+                                    clearCache(context)
+                                    updateCacheSize()
+                                    Toast.makeText(context, "App cache cleared successfully!", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+
+                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                        // Tour Replay
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "🚀 Onboarding Tutorial", 
+                                    fontSize = 13.sp, 
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Replay the welcome tour guide", 
+                                    fontSize = 10.sp, 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            
+                            NovaSecondaryButton(
+                                text = "Replay Tour",
+                                neonColor = NeonGold,
+                                onClick = {
+                                    prefs.edit().putBoolean("pref_show_onboarding", true).apply()
+                                    Toast.makeText(context, "Tutorial reset! Reopen the app or go back to replay.", Toast.LENGTH_LONG).show()
                                 }
                             )
                         }
                     }
                 }
-            }
-        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-        // Section 2: Default Conversion
-        Text("⚙️ Default Conversions", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
-        Spacer(modifier = Modifier.height(12.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Default image format
-                Text("🖼️ Default Image Target Format", fontSize = 14.sp, color = MidnightIndigo)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val formats = listOf("JPG", "PNG", "WEBP")
-                    formats.forEach { fmt ->
-                        val isSelected = defaultImgFormat == fmt
-                        Button(
-                            onClick = {
-                                defaultImgFormat = fmt
-                                prefs.edit().putString("pref_default_img_format", fmt).apply()
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.background,
-                                contentColor = if (isSelected) PureWhite else MidnightIndigo
-                            ),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(fmt)
+                // On-Device offline Privacy Badge
+                GlassCard(
+                    neonAccent = NovaSuccess.copy(alpha = 0.4f),
+                    cornerRadius = NovaTokens.Radius.xl,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🔒", fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "100% Offline & Hardware Secure", 
+                                color = NovaSuccess, 
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                "Your documents and media files are processed locally on device. No analytics, tracking, or network telemetry.", 
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), 
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp
+                            )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
-                // Default Quality
-                Text("🎯 Default Conversion Quality: $defaultQuality%", fontSize = 14.sp, color = MidnightIndigo)
-                Slider(
-                    value = defaultQuality.toFloat(),
-                    onValueChange = { q ->
-                        defaultQuality = q.toInt()
-                        prefs.edit().putInt("pref_default_quality", q.toInt()).apply()
-                    },
-                    valueRange = 10f..100f,
-                    colors = SliderDefaults.colors(thumbColor = MidnightIndigo, activeTrackColor = MidnightIndigo)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Section 3: Storage & Maintenance
-        Text("📁 Storage & Maintenance", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
-        Spacer(modifier = Modifier.height(12.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("📂 Output Directory", fontSize = 14.sp, color = MidnightIndigo)
-                Text("Documents/Anegan/", fontSize = 12.sp, color = Color.Gray)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
+                // App Version
+                Box(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column {
-                        Text("🗑️ App Temp Cache Size", fontSize = 14.sp, color = MidnightIndigo)
-                        Text(String.format("%.2f MB cached", cacheSizeMb), fontSize = 12.sp, color = Color.Gray)
-                    }
-                    Button(
-                        onClick = {
-                            clearCache(context)
-                            updateCacheSize()
-                            Toast.makeText(context, "App cache cleared successfully!", Toast.LENGTH_SHORT).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
-                    ) {
-                        Text("Clear Cache")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("🚀 Onboarding Tutorial", fontSize = 14.sp, color = MidnightIndigo)
-                        Text("Replay the welcome tour", fontSize = 12.sp, color = Color.Gray)
-                    }
-                    Button(
-                        onClick = {
-                            prefs.edit().putBoolean("pref_show_onboarding", true).apply()
-                            Toast.makeText(context, "Tutorial reset! Reopen the app or go back to replay.", Toast.LENGTH_LONG).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
-                    ) {
-                        Text("Replay Tour")
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val currentVersion = try {
+                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "3.2.0"
+                        } catch (e: Exception) {
+                            "3.2.0"
+                        }
+                        Text(
+                            text = "Anegan Console v$currentVersion", 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), 
+                            fontSize = 11.sp,
+                            fontFamily = FiraCodeFontFamily
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Crafted with focus by Mahilan (heisenricher)", 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), 
+                            fontSize = 10.sp,
+                            fontFamily = FiraCodeFontFamily
+                        )
                     }
                 }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // On-Device offline Privacy Badge
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MidnightIndigo)
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("🔒 100% Offline & Private", color = PureWhite, style = MaterialTheme.typography.titleMedium)
-                Text("Your documents and media files are processed locally. No uploads.", color = Color.LightGray, fontSize = 11.sp)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // App Version
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                val currentVersion = try {
-                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.13"
-                } catch (e: Exception) {
-                    "1.0.13"
-                }
-                Text("Anegan v$currentVersion", color = Color.Gray, fontSize = 12.sp)
-                Text("Crafted by Mahilan (heisenricher)", color = Color.Gray, fontSize = 11.sp)
+                
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }

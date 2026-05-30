@@ -13,30 +13,38 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
-import com.anegan.core.designsystem.theme.PureWhite
+import com.anegan.core.designsystem.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,7 +53,9 @@ fun UnitConverterScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val scrollState = rememberScrollState()
+    val isDark = isSystemInDarkTheme()
 
     val categories = listOf("Length", "Mass", "Temperature", "Data Size", "Area")
     var activeCategoryIndex by remember { mutableStateOf(0) }
@@ -76,205 +86,183 @@ fun UnitConverterScreen(
         String.format("%.6f", resultValue).trimEnd('0').trimEnd('.')
     }
 
+    val primaryAccent = NeonLime // Electric Lime for Utility tools
+
     fun swapUnits() {
+        NovaHaptics.click(view)
         val temp = fromUnit
         fromUnit = toUnit
         toUnit = temp
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp)
-            .verticalScroll(scrollState)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(48.dp)
-                    .semantics { contentDescription = "Go back to dashboard" }
-            ) {
-                Text(
-                    text = "←",
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                    color = MidnightIndigo
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Unit Converter",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo
+    BackHandler {
+        onBack()
+    }
+
+    Scaffold(
+        topBar = {
+            NovaTopBar(
+                title = "Unit Converter",
+                onBack = onBack,
+                neonAccent = primaryAccent
             )
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Horizontal Category Tabs
-        ScrollableTabRow(
-            selectedTabIndex = activeCategoryIndex,
-            edgePadding = 0.dp,
-            containerColor = Color.Transparent,
-            contentColor = MidnightIndigo,
-            indicator = { tabPositions ->
-                TabRowDefaults.Indicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[activeCategoryIndex]),
-                    color = MidnightIndigo
-                )
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            categories.forEachIndexed { index, name ->
-                Tab(
-                    selected = activeCategoryIndex == index,
-                    onClick = { activeCategoryIndex = index },
-                    text = {
-                        Text(
-                            text = name,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    },
-                    modifier = Modifier.height(48.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // FROM Selection & Input Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "From",
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-
-                UnitSelectorDropdown(
-                    selectedUnit = fromUnit,
-                    units = currentUnits,
-                    onUnitSelected = { fromUnit = it },
-                    label = "Select source unit"
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = inputValue,
-                    onValueChange = { inputValue = it },
-                    label = { Text("Value to Convert") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentDescription = "Enter numeric value to convert from $fromUnit" },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MidnightIndigo,
-                        unfocusedBorderColor = Color.LightGray
-                    )
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Swap Button Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Button(
-                onClick = { swapUnits() },
-                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .height(48.dp)
-                    .semantics { contentDescription = "Swap source and target units" }
+    ) { innerPadding ->
+        NovaBackground {
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = NovaTokens.Spacing.md, vertical = NovaTokens.Spacing.sm)
+                    .verticalScroll(scrollState),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.md)
             ) {
-                Text("⇅ Swap Units", fontWeight = FontWeight.Bold)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // TO Selection & Result Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "To",
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-
-                UnitSelectorDropdown(
-                    selectedUnit = toUnit,
-                    units = currentUnits,
-                    onUnitSelected = { toUnit = it },
-                    label = "Select target unit"
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Result display box
-                Box(
+                // Horizontal Category Tabs (Sci-fi scrolling chips layout)
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.background)
-                        .border(1.dp, Color.LightGray.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
-                        .padding(16.dp)
-                        .semantics { contentDescription = "Conversion result is $formattedResult $toUnit" }
+                        .horizontalScroll(rememberScrollState())
+                        .padding(vertical = NovaTokens.Spacing.xxs),
+                    horizontalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.xs)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Result",
-                                color = Color.Gray,
-                                fontSize = 11.sp
-                            )
-                            Text(
-                                text = "$formattedResult ${getUnitAbbreviation(toUnit)}",
-                                color = MidnightIndigo,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        IconButton(
-                            onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("Conversion Result", formattedResult)
-                                clipboard.setPrimaryClip(clip)
-                                Toast.makeText(context, "Copied $formattedResult to clipboard!", Toast.LENGTH_SHORT).show()
+                    categories.forEachIndexed { index, name ->
+                        NovaChip(
+                            text = name,
+                            selected = activeCategoryIndex == index,
+                            onClick = { 
+                                activeCategoryIndex = index
                             },
+                            neonColor = primaryAccent
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(NovaTokens.Spacing.xxs))
+
+                // FROM Selection & Input Card
+                GlassCard(
+                    neonAccent = primaryAccent,
+                    enableGlow = false
+                ) {
+                    Column(modifier = Modifier.padding(NovaTokens.Spacing.md)) {
+                        Text(
+                            text = "Source Asset Unit",
+                            style = NovaTypography.tagMono.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                        
+                        Spacer(modifier = Modifier.height(NovaTokens.Spacing.xs))
+
+                        UnitSelectorDropdown(
+                            selectedUnit = fromUnit,
+                            units = currentUnits,
+                            onUnitSelected = { fromUnit = it },
+                            label = "Select Source Unit",
+                            neonAccent = primaryAccent
+                        )
+
+                        Spacer(modifier = Modifier.height(NovaTokens.Spacing.md))
+
+                        NovaTextField(
+                            value = inputValue,
+                            onValueChange = { inputValue = it },
+                            placeholder = "Enter Input Value",
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            neonColor = primaryAccent
+                        )
+                    }
+                }
+
+                // Swap Button
+                NovaSecondaryButton(
+                    text = "⇅ Swap Conversion Units",
+                    neonColor = primaryAccent,
+                    onClick = { swapUnits() }
+                )
+
+                // TO Selection & Result Card
+                GlassCard(
+                    neonAccent = primaryAccent,
+                    enableGlow = false
+                ) {
+                    Column(modifier = Modifier.padding(NovaTokens.Spacing.md)) {
+                        Text(
+                            text = "Target Destination Unit",
+                            style = NovaTypography.tagMono.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                        
+                        Spacer(modifier = Modifier.height(NovaTokens.Spacing.xs))
+
+                        UnitSelectorDropdown(
+                            selectedUnit = toUnit,
+                            units = currentUnits,
+                            onUnitSelected = { toUnit = it },
+                            label = "Select Target Unit",
+                            neonAccent = primaryAccent
+                        )
+
+                        Spacer(modifier = Modifier.height(NovaTokens.Spacing.md))
+
+                        // Result display box (Sci-fi holographic panel style)
+                        Box(
                             modifier = Modifier
-                                .size(48.dp)
-                                .semantics { contentDescription = "Copy conversion result value to clipboard" }
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(NovaTokens.Radius.md))
+                                .background(
+                                    if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f)
+                                )
+                                .border(
+                                    width = 1.5.dp,
+                                    color = primaryAccent.copy(alpha = 0.7f),
+                                    shape = RoundedCornerShape(NovaTokens.Radius.md)
+                                )
+                                .padding(NovaTokens.Spacing.md)
                         ) {
-                            Text("Copy", color = MidnightIndigo, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Conversion Result",
+                                        style = NovaTypography.tagMono.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "$formattedResult ${getUnitAbbreviation(toUnit)}",
+                                        style = NovaTypography.headlineLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = primaryAccent,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 24.sp
+                                        )
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        NovaHaptics.success(view)
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        val clip = ClipData.newPlainText("Conversion Result", formattedResult)
+                                        clipboard.setPrimaryClip(clip)
+                                        Toast.makeText(context, "Copied $formattedResult to clipboard!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ContentCopy,
+                                        contentDescription = "Copy result",
+                                        tint = primaryAccent
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -289,9 +277,12 @@ fun UnitSelectorDropdown(
     selectedUnit: String,
     units: List<String>,
     onUnitSelected: (String) -> Unit,
-    label: String
+    label: String,
+    neonAccent: Color
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val isDark = isSystemInDarkTheme()
+    val view = LocalView.current
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -301,27 +292,43 @@ fun UnitSelectorDropdown(
             readOnly = true,
             value = selectedUnit,
             onValueChange = {},
-            label = { Text(label) },
+            label = { 
+                Text(
+                    text = label,
+                    style = NovaTypography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ) 
+            },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MidnightIndigo,
-                unfocusedBorderColor = Color.LightGray
+                focusedContainerColor = if (isDark) NovaMidnightBlue.copy(alpha = 0.5f) else NovaPureWhite.copy(alpha = 0.5f),
+                unfocusedContainerColor = if (isDark) NovaMidnightBlue.copy(alpha = 0.3f) else NovaPureWhite.copy(alpha = 0.3f),
+                focusedBorderColor = neonAccent,
+                unfocusedBorderColor = if (isDark) NovaBorderDark.copy(alpha = 0.3f) else NovaBorderLight.copy(alpha = 0.3f),
+                focusedLabelColor = neonAccent
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor()
-                .semantics { contentDescription = "$label: active selection is $selectedUnit" },
-            shape = RoundedCornerShape(16.dp)
+                .menuAnchor(),
+            shape = RoundedCornerShape(NovaTokens.Radius.md)
         )
 
         ExposedDropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(if (isDark) NovaMidnightBlue else Color.White)
         ) {
             units.forEach { selectionOption ->
                 DropdownMenuItem(
-                    text = { Text(text = selectionOption) },
+                    text = { 
+                        Text(
+                            text = selectionOption,
+                            style = NovaTypography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ) 
+                    },
                     onClick = {
+                        NovaHaptics.click(view)
                         onUnitSelected(selectionOption)
                         expanded = false
                     },

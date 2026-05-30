@@ -11,32 +11,43 @@ package com.anegan.feature.conversion
 
 import android.content.Context
 import android.hardware.camera2.CameraManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.annotation.RequiresApi
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
-import com.anegan.core.designsystem.theme.PureWhite
+import com.anegan.core.designsystem.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,51 +56,66 @@ fun FlashlightScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val cameraManager = remember { context.getSystemService(Context.CAMERA_SERVICE) as CameraManager }
     var cameraId by remember { mutableStateOf<String?>(null) }
     var hasFlash by remember { mutableStateOf(false) }
 
-    // Init Camera flash availability
+    var isFlashOn by remember { mutableStateOf(false) }
+    var isSosActive by remember { mutableStateOf(false) }
+    var strobeFrequencyHz by remember { mutableStateOf(0f) }
+    var intensityLevel by remember { mutableStateOf(1f) }
+    var maxIntensity by remember { mutableStateOf(1) }
+
+    val primaryAccent = NeonLime // Electric Lime for Utility tools
+
+    // Init Camera flash availability & max intensity level
     LaunchedEffect(Unit) {
         try {
             val list = cameraManager.cameraIdList
             if (list.isNotEmpty()) {
-                cameraId = list[0]
+                val id = list[0]
+                cameraId = id
                 hasFlash = true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val characteristics = cameraManager.getCameraCharacteristics(id)
+                    maxIntensity = characteristics.get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL) ?: 1
+                    intensityLevel = maxIntensity.toFloat()
+                }
             }
         } catch (e: Exception) {
             hasFlash = false
         }
     }
 
-    var isFlashOn by remember { mutableStateOf(false) }
-    var isSosActive by remember { mutableStateOf(false) }
-    var strobeFrequencyHz by remember { mutableStateOf(0f) } // 0f = Solid light
-
-    // Handler for strobe and SOS execution
     val handler = remember { Handler(Looper.getMainLooper()) }
 
-    // Helper function to toggle flash safely
-    fun setFlashMode(on: Boolean) {
+    fun setFlashMode(on: Boolean, level: Int) {
         val id = cameraId ?: return
         try {
-            cameraManager.setTorchMode(id, on)
+            if (on) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && maxIntensity > 1) {
+                    cameraManager.turnOnTorchWithStrengthLevel(id, level.coerceIn(1, maxIntensity))
+                } else {
+                    cameraManager.setTorchMode(id, true)
+                }
+            } else {
+                cameraManager.setTorchMode(id, false)
+            }
         } catch (e: Exception) {
             // Ignore camera lockouts
         }
     }
 
-    // Effect to control Solid Flashlight state
-    LaunchedEffect(isFlashOn, isSosActive, strobeFrequencyHz) {
-        // Clear all previous loops
+    // Effect to control torch state
+    LaunchedEffect(isFlashOn, isSosActive, strobeFrequencyHz, intensityLevel, maxIntensity) {
         handler.removeCallbacksAndMessages(null)
 
         if (isSosActive) {
-            // SOS Morse Code pattern: ... --- ... (3 short, 3 long, 3 short)
             val sosPattern = listOf(
-                200, 200, 200, 200, 200, 600, // S (...): 3 short pulses
-                600, 200, 600, 200, 600, 600, // O (---): 3 long pulses
-                200, 200, 200, 200, 200, 1200 // S (...): 3 short pulses + delay
+                200, 200, 200, 200, 200, 600, // S
+                600, 200, 600, 200, 600, 600, // O
+                200, 200, 200, 200, 200, 1200 // S
             )
             var patternIdx = 0
 
@@ -97,11 +123,11 @@ fun FlashlightScreen(
                 var flashState = false
                 override fun run() {
                     if (!isSosActive) {
-                        setFlashMode(false)
+                        setFlashMode(false, 1)
                         return
                     }
                     flashState = !flashState
-                    setFlashMode(flashState)
+                    setFlashMode(flashState, intensityLevel.toInt())
 
                     val delay = sosPattern[patternIdx]
                     patternIdx = (patternIdx + 1) % sosPattern.size
@@ -110,24 +136,22 @@ fun FlashlightScreen(
             }
             handler.post(sosRunnable)
         } else if (isFlashOn && strobeFrequencyHz > 0f) {
-            // Strobe frequency flashing mode
             val intervalMs = (1000f / (strobeFrequencyHz * 2f)).toLong()
             val strobeRunnable = object : Runnable {
                 var flashState = false
                 override fun run() {
                     if (!isFlashOn || strobeFrequencyHz == 0f) {
-                        setFlashMode(isFlashOn)
+                        setFlashMode(isFlashOn, intensityLevel.toInt())
                         return
                     }
                     flashState = !flashState
-                    setFlashMode(flashState)
+                    setFlashMode(flashState, intensityLevel.toInt())
                     handler.postDelayed(this, intervalMs)
                 }
             }
             handler.post(strobeRunnable)
         } else {
-            // Standard Solid state
-            setFlashMode(isFlashOn)
+            setFlashMode(isFlashOn, intensityLevel.toInt())
         }
     }
 
@@ -142,206 +166,258 @@ fun FlashlightScreen(
         }
     }
 
-    // Animate glow color and shadow depth
+    val isActive = isFlashOn || isSosActive
+    val activeColor = if (isSosActive) NovaError else primaryAccent
+
     val glowColor by animateColorAsState(
-        targetValue = if (isFlashOn || isSosActive) Color(0xFFFFD54F) else Color(0xFFE2E8F0),
-        animationSpec = tween(300),
+        targetValue = if (isActive) activeColor.copy(alpha = 0.2f) else Color.Transparent,
+        animationSpec = tween(NovaTokens.Motion.normal),
         label = "bulb_glow_color"
     )
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(48.dp)
-                    .semantics { contentDescription = "Go back to dashboard" }
-            ) {
-                Text(
-                    text = "←",
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                    color = MidnightIndigo
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Flashlight",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo
+    BackHandler {
+        onBack()
+    }
+
+    Scaffold(
+        topBar = {
+            NovaTopBar(
+                title = "Flashlight",
+                onBack = onBack,
+                neonAccent = primaryAccent
             )
         }
-
-        if (!hasFlash) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
+    ) { innerPadding ->
+        NovaBackground {
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(NovaTokens.Spacing.xl),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(0.9f),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                if (!hasFlash) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("🔦", fontSize = 48.sp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "No Camera Flash Detected",
-                            color = MidnightIndigo,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Your device does not support camera torch operations or the camera is currently in use by another app.",
-                            color = Color.Gray,
-                            fontSize = 12.sp,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
-                }
-            }
-        } else {
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // Main Interactive Bulb Button
-            Box(
-                modifier = Modifier
-                    .size(180.dp)
-                    .clip(CircleShape)
-                    .background(glowColor)
-                    .border(
-                        width = 4.dp,
-                        color = if (isFlashOn || isSosActive) MidnightIndigo else Color.LightGray.copy(alpha = 0.5f),
-                        shape = CircleShape
-                    )
-                    .clickable {
-                        if (isSosActive) {
-                            isSosActive = false
+                        GlassCard(
+                            neonAccent = NovaError,
+                            enableGlow = true
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(NovaTokens.Spacing.xl),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("🔦", fontSize = 48.sp)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "No Camera Flash Detected",
+                                    style = NovaTypography.headlineLarge.copy(
+                                        color = NovaError,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Your device does not support camera torch operations or the camera is currently in use.",
+                                    style = NovaTypography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
-                        isFlashOn = !isFlashOn
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = if (isFlashOn || isSosActive) "💡" else "🔌",
-                        fontSize = 54.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (isFlashOn || isSosActive) "ACTIVE" else "OFF",
-                        color = if (isFlashOn || isSosActive) MidnightIndigo else Color.Gray,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.sp
-                    )
-                }
-            }
+                    }
+                } else {
+                    // Holographic Bulb & Pulse Rings
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        // Expanding active pulse rings
+                        if (isActive) {
+                            NovaPulseRing(
+                                neonColor = activeColor,
+                                baseRadius = 80f,
+                                pulseAmplitude = 18f,
+                                pulseDurationMs = if (isSosActive) 1000 else 2000
+                            )
+                        }
 
-            Spacer(modifier = Modifier.weight(0.1f))
-
-            // Strobe control slider
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Strobe Mode (Frequency)",
-                        fontWeight = FontWeight.Bold,
-                        color = MidnightIndigo,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = if (strobeFrequencyHz == 0f) "Solid flashlight output" else "${strobeFrequencyHz.toInt()} Hz flashing strobe",
-                        color = Color.Gray,
-                        fontSize = 11.sp
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Slider(
-                        value = strobeFrequencyHz,
-                        onValueChange = {
-                            if (isSosActive) isSosActive = false
-                            isFlashOn = true
-                            strobeFrequencyHz = it
-                        },
-                        valueRange = 0f..10f,
-                        steps = 9,
-                        colors = SliderDefaults.colors(
-                            thumbColor = MidnightIndigo,
-                            activeTrackColor = MidnightIndigo
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Emergency SOS Mode Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSosActive) Color(0xFFFFECEC) else MaterialTheme.colorScheme.surface
-                ),
-                border = BorderStroke(
-                    width = 0.5.dp,
-                    color = if (isSosActive) Color.Red.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Emergency SOS Flasher",
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSosActive) Color.Red else MidnightIndigo,
-                            fontSize = 14.sp
+                        val interactionSource = remember { MutableInteractionSource() }
+                        val isPressed by interactionSource.collectIsPressedAsState()
+                        val scale by animateFloatAsState(
+                            targetValue = if (isPressed) 0.9f else 1f,
+                            animationSpec = NovaTokens.Motion.springBouncy,
+                            label = "power_btn_scale"
                         )
-                        Text(
-                            text = "Emits standard Morse Code SOS flashing pattern recursively.",
-                            color = Color.Gray,
-                            fontSize = 11.sp
-                        )
+
+                        // Interactive central power button
+                        Box(
+                            modifier = Modifier
+                                .size(160.dp)
+                                .scale(scale)
+                                .clip(CircleShape)
+                                .background(glowColor)
+                                .clickable(
+                                    interactionSource = interactionSource,
+                                    indication = null
+                                ) {
+                                    NovaHaptics.toggle(view)
+                                    if (isSosActive) isSosActive = false
+                                    isFlashOn = !isFlashOn
+                                }
+                                .border(
+                                    width = 2.dp,
+                                    color = if (isActive) activeColor else if (isSystemInDarkTheme()) NovaBorderDark else NovaBorderLight,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Bolt,
+                                    contentDescription = null,
+                                    tint = if (isActive) activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(50.dp)
+                                )
+                                Spacer(modifier = Modifier.height(NovaTokens.Spacing.xxs))
+                                Text(
+                                    text = if (isActive) "ACTIVE" else "OFF",
+                                    style = NovaTypography.tagMono.copy(
+                                        color = if (isActive) activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                )
+                            }
+                        }
                     }
 
-                    Button(
-                        onClick = {
-                            isFlashOn = false
-                            strobeFrequencyHz = 0f
-                            isSosActive = !isSosActive
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSosActive) Color.Red else MidnightIndigo,
-                            contentColor = PureWhite
-                        ),
-                        shape = RoundedCornerShape(16.dp)
+                    // Brightness and Strobe Controls
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(NovaTokens.Spacing.sm),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(text = if (isSosActive) "Stop SOS" else "Start SOS", fontWeight = FontWeight.Bold)
+                        // Brightness Slider Card
+                        GlassCard(
+                            neonAccent = primaryAccent,
+                            enableGlow = false
+                        ) {
+                            Column(modifier = Modifier.padding(NovaTokens.Spacing.md)) {
+                                Text(
+                                    text = "Brightness Intensity",
+                                    style = NovaTypography.headlineSmall.copy(
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                                Text(
+                                    text = if (maxIntensity > 1) "Level ${intensityLevel.toInt()} of $maxIntensity" else "Hardware intensity control not supported on this device.",
+                                    style = NovaTypography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(NovaTokens.Spacing.xs))
+                                NovaSlider(
+                                    value = intensityLevel,
+                                    onValueChange = {
+                                        intensityLevel = it
+                                        if (isFlashOn) {
+                                            setFlashMode(true, intensityLevel.toInt())
+                                        }
+                                    },
+                                    valueRange = 1f..maxIntensity.toFloat().coerceAtLeast(1f),
+                                    steps = if (maxIntensity > 1) maxIntensity - 2 else 0,
+                                    neonColor = primaryAccent
+                                )
+                            }
+                        }
+
+                        // Strobe Frequency Slider Card
+                        GlassCard(
+                            neonAccent = primaryAccent,
+                            enableGlow = false
+                        ) {
+                            Column(modifier = Modifier.padding(NovaTokens.Spacing.md)) {
+                                Text(
+                                    text = "Strobe Mode (Frequency)",
+                                    style = NovaTypography.headlineSmall.copy(
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                                Text(
+                                    text = if (strobeFrequencyHz == 0f) "Solid flashlight output" else "${strobeFrequencyHz.toInt()} Hz flashing strobe",
+                                    style = NovaTypography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(NovaTokens.Spacing.xs))
+                                NovaSlider(
+                                    value = strobeFrequencyHz,
+                                    onValueChange = {
+                                        if (isSosActive) isSosActive = false
+                                        isFlashOn = true
+                                        strobeFrequencyHz = it
+                                    },
+                                    valueRange = 0f..10f,
+                                    steps = 9,
+                                    neonColor = primaryAccent
+                                )
+                            }
+                        }
+
+                        // Emergency SOS Flasher Card (Glass Red Alert Theme)
+                        GlassCard(
+                            neonAccent = NovaError,
+                            enableGlow = isSosActive
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(NovaTokens.Spacing.md),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Emergency SOS Flasher",
+                                        style = NovaTypography.headlineSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSosActive) NovaError else MaterialTheme.colorScheme.primary
+                                        )
+                                    )
+                                    Text(
+                                        text = "Emits standard Morse Code SOS flashing pattern recursively.",
+                                        style = NovaTypography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(NovaTokens.Spacing.xs))
+                                Button(
+                                    onClick = {
+                                        NovaHaptics.warning(view)
+                                        isFlashOn = false
+                                        strobeFrequencyHz = 0f
+                                        isSosActive = !isSosActive
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isSosActive) NovaError else NovaError.copy(alpha = 0.15f),
+                                        contentColor = if (isSosActive) NovaDeepInk else NovaError
+                                    ),
+                                    shape = RoundedCornerShape(NovaTokens.Radius.sm),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Text(
+                                        text = if (isSosActive) "Stop" else "Start",
+                                        style = NovaTypography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

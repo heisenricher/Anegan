@@ -15,6 +15,7 @@ import android.content.Context
 import android.widget.DatePicker
 import android.widget.TimePicker
 import android.widget.Toast
+import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,11 +26,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -38,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -47,15 +55,14 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
+import com.anegan.core.designsystem.theme.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalHapticFeedback
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Checklist item model
@@ -140,9 +147,10 @@ fun NoteEditorScreen(
     onBack : () -> Unit
 ) {
     val context      = LocalContext.current
+    val view         = LocalView.current
     val scope        = rememberCoroutineScope()
     val scrollState  = rememberScrollState()
-    val haptic       = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val haptic       = LocalHapticFeedback.current
 
     // ── Load or create note ──────────────────────────────────────────────────
     var allNotesList = remember { loadNotes(context) }
@@ -278,14 +286,14 @@ fun NoteEditorScreen(
     }
 
     // ── Background color for the editor surface ──────────────────────────────
-    val bgColor = (NOTE_LABEL_COLORS[colorLabel] ?: Color.Transparent)
-        .let { if (colorLabel == "None") MaterialTheme.colorScheme.background else it.copy(alpha = 0.12f) }
+    val labelColor = NOTE_LABEL_COLORS[colorLabel] ?: Color.Transparent
+    val hasLabel = colorLabel != "None"
 
     // ── Delete confirmation ──────────────────────────────────────────────────
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title  = { Text("Delete Note") },
+            title  = { Text("Delete Note", color = NeonGold, fontWeight = FontWeight.Bold) },
             text   = { Text("This note will be permanently deleted.") },
             confirmButton = {
                 TextButton(onClick = {
@@ -293,7 +301,7 @@ fun NoteEditorScreen(
                     showDeleteDialog = false
                     onBack()
                 }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -308,7 +316,8 @@ fun NoteEditorScreen(
             onDismissRequest  = { showColorSheet = false },
             sheetState        = colorSheetState,
             dragHandle        = { BottomSheetDefaults.DragHandle() },
-            windowInsets      = WindowInsets.navigationBars
+            windowInsets      = WindowInsets.navigationBars,
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -317,8 +326,8 @@ fun NoteEditorScreen(
             ) {
                 Text(
                     "Note Color",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = NeonGold,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 Row(
@@ -348,7 +357,8 @@ fun NoteEditorScreen(
             onDismissRequest  = { showReminderSheet = false },
             sheetState        = reminderSheetState,
             dragHandle        = { BottomSheetDefaults.DragHandle() },
-            windowInsets      = WindowInsets.navigationBars
+            windowInsets      = WindowInsets.navigationBars,
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -357,8 +367,8 @@ fun NoteEditorScreen(
             ) {
                 Text(
                     "Set Reminder",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = NeonGold
                 )
                 Spacer(Modifier.height(12.dp))
 
@@ -368,13 +378,17 @@ fun NoteEditorScreen(
                     Text(
                         "Current: $formatted",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MidnightIndigo
+                        color = NeonGold,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FiraCodeFontFamily
                     )
                     Spacer(Modifier.height(12.dp))
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextButton(
+                    NovaSecondaryButton(
+                        text = "Pick Date & Time",
+                        neonColor = NeonGold,
                         onClick = {
                             showDateTimePicker(context, reminderTime) { selectedMs ->
                                 reminderTime      = selectedMs
@@ -382,23 +396,18 @@ fun NoteEditorScreen(
                                 showReminderSheet = false
                             }
                         }
-                    ) {
-                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = MidnightIndigo)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Pick date & time", color = MidnightIndigo)
-                    }
+                    )
 
                     if (hasReminder) {
-                        TextButton(onClick = {
-                            hasReminder       = false
-                            reminderTime      = 0L
-                            showReminderSheet = false
-                        }) {
-                            Icon(Icons.Default.Close, contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Remove", color = MaterialTheme.colorScheme.error)
-                        }
+                        NovaSecondaryButton(
+                            text = "Remove",
+                            neonColor = MaterialTheme.colorScheme.error,
+                            onClick = {
+                                hasReminder       = false
+                                reminderTime      = 0L
+                                showReminderSheet = false
+                            }
+                        )
                     }
                 }
                 Spacer(Modifier.height(24.dp))
@@ -425,7 +434,8 @@ fun NoteEditorScreen(
 
         ModalBottomSheet(
             onDismissRequest = { showVersionHistorySheet = false },
-            windowInsets = WindowInsets.navigationBars
+            windowInsets = WindowInsets.navigationBars,
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -434,16 +444,15 @@ fun NoteEditorScreen(
             ) {
                 Text(
                     "Version History Snapshots 📜",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MidnightIndigo,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = NeonGold,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 if (versionsList.isEmpty()) {
                     Text(
                         "No incremental backup snapshots stored yet. Make edits and save notes to log snapshots.",
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 } else {
                     Column(
@@ -459,10 +468,9 @@ fun NoteEditorScreen(
                             val snapTitle = snap.optString("title", "")
                             val dateStr = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date(timestamp))
                             
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)),
-                                border = BorderStroke(0.5.dp, Color.LightGray.copy(alpha = 0.4f)),
+                            GlassCard(
+                                neonAccent = NeonGold.copy(alpha = 0.3f),
+                                cornerRadius = NovaTokens.Radius.md,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
@@ -474,12 +482,18 @@ fun NoteEditorScreen(
                                     }
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(dateStr, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MidnightIndigo)
+                                    Text(
+                                        dateStr, 
+                                        fontWeight = FontWeight.Bold, 
+                                        fontSize = 13.sp, 
+                                        color = NeonGold,
+                                        fontFamily = FiraCodeFontFamily
+                                    )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         snapContent.take(120) + if (snapContent.length > 120) "..." else "",
                                         fontSize = 11.sp,
-                                        color = Color.Gray,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -496,7 +510,8 @@ fun NoteEditorScreen(
     if (showTOCSheet) {
         ModalBottomSheet(
             onDismissRequest = { showTOCSheet = false },
-            windowInsets = WindowInsets.navigationBars
+            windowInsets = WindowInsets.navigationBars,
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -505,16 +520,15 @@ fun NoteEditorScreen(
             ) {
                 Text(
                     "Table of Contents Outline 📑",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MidnightIndigo,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = NeonGold,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 if (tocHeadings.isEmpty()) {
                     Text(
                         "No headings found in note. Use # H1, ## H2, ### H3 to populate outlines.",
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 } else {
                     Column(
@@ -537,9 +551,9 @@ fun NoteEditorScreen(
                                     .padding(start = indent.dp, top = 8.dp, bottom = 8.dp),
                                 style = if (level == 1) MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
                                         else MaterialTheme.typography.bodyMedium,
-                                color = MidnightIndigo
+                                color = NeonGold
                             )
-                            Divider(color = Color.LightGray.copy(alpha = 0.2f))
+                            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                         }
                     }
                 }
@@ -551,7 +565,8 @@ fun NoteEditorScreen(
     if (showBacklinksSheet) {
         ModalBottomSheet(
             onDismissRequest = { showBacklinksSheet = false },
-            windowInsets = WindowInsets.navigationBars
+            windowInsets = WindowInsets.navigationBars,
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -560,16 +575,15 @@ fun NoteEditorScreen(
             ) {
                 Text(
                     "Backlinks to this note 🔗",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MidnightIndigo,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = NeonGold,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 if (backlinks.isEmpty()) {
                     Text(
                         "No other notes link to this note yet. Use [[${title.ifBlank { "Current Title" }}]] in other notes to reference this one.",
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 } else {
                     Column(
@@ -580,10 +594,9 @@ fun NoteEditorScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         backlinks.forEach { noteLink ->
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)),
-                                border = BorderStroke(0.5.dp, Color.LightGray.copy(alpha = 0.4f)),
+                            GlassCard(
+                                neonAccent = NeonGold.copy(alpha = 0.3f),
+                                cornerRadius = NovaTokens.Radius.md,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
@@ -615,7 +628,7 @@ fun NoteEditorScreen(
                                         text = noteLink.title.ifBlank { "Untitled" },
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
-                                        color = MidnightIndigo
+                                        color = NeonGold
                                     )
                                 }
                             }
@@ -627,581 +640,565 @@ fun NoteEditorScreen(
         }
     }
 
-    // ── Main scaffold ────────────────────────────────────────────────────────
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    // Segment control for Edit vs Preview
-                    TabRow(
-                        selectedTabIndex = if (isPreviewMode) 1 else 0,
-                        divider = {},
-                        indicator = { tabPositions ->
-                            TabRowDefaults.Indicator(
-                                modifier = Modifier.tabIndicatorOffset(tabPositions[if (isPreviewMode) 1 else 0]),
-                                color = MidnightIndigo
-                            )
-                        },
-                        modifier = Modifier
-                            .width(180.dp)
-                            .height(40.dp)
-                            .background(Color.Transparent)
-                    ) {
-                        Tab(
-                            selected = !isPreviewMode,
-                            onClick = { isPreviewMode = false },
-                            text = { Text("Edit", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MidnightIndigo) }
-                        )
-                        Tab(
-                            selected = isPreviewMode,
-                            onClick = {
-                                doSave()
-                                isPreviewMode = true
-                            },
-                            text = { Text("Preview", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MidnightIndigo) }
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        doSave()
-                        onBack()
-                    }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MidnightIndigo)
-                    }
-                },
-                actions = {
-                    // Search in note toggle
-                    IconButton(onClick = { isSearchInNoteActive = !isSearchInNoteActive }) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search in Note",
-                            tint = MidnightIndigo
-                        )
-                    }
-
-                    // Folder/Notebook picker
-                    Box {
-                        TextButton(onClick = { showFolderMenu = true }) {
-                            Text(
-                                text = "📁 ${notebook.uppercase()}",
-                                color = MidnightIndigo,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showFolderMenu,
-                            onDismissRequest = { showFolderMenu = false }
-                        ) {
-                            listOf("Inbox", "Projects", "Areas", "Resources").forEach { folderName ->
-                                DropdownMenuItem(
-                                    text = { Text(folderName) },
-                                    onClick = {
-                                        notebook = folderName
-                                        showFolderMenu = false
-                                        doSave()
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    // Pin toggle
-                    IconToggleButton(
-                        checked  = isPinned,
-                        onCheckedChange = { isPinned = it }
-                    ) {
-                        Icon(
-                            Icons.Default.PushPin,
-                            contentDescription = if (isPinned) "Unpin" else "Pin",
-                            tint = if (isPinned) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        )
-                    }
-                    // Overflow menu
-                    Box {
-                        IconButton(onClick = { showOverflowMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More", tint = MidnightIndigo)
-                        }
-                        DropdownMenu(
-                            expanded        = showOverflowMenu,
-                            onDismissRequest = { showOverflowMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Version History") },
-                                leadingIcon = { Icon(Icons.Default.History, contentDescription = null) },
-                                onClick = {
-                                    showVersionHistorySheet = true
-                                    showOverflowMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Table of Contents") },
-                                leadingIcon = { Icon(Icons.Default.List, contentDescription = null) },
-                                onClick = {
-                                    showTOCSheet = true
-                                    showOverflowMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Backlinks") },
-                                leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
-                                onClick = {
-                                    showBacklinksSheet = true
-                                    showOverflowMenu = false
-                                }
-                            )
-                            Divider()
-                            DropdownMenuItem(
-                                text = { Text(if (isArchived) "Unarchive" else "Archive") },
-                                leadingIcon = { Icon(Icons.Default.Archive, contentDescription = null) },
-                                onClick = {
-                                    isArchived = !isArchived
-                                    showOverflowMenu = false
+    NovaBackground {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        val tabs = listOf("Edit", "Preview")
+                        NovaSegmentedControl(
+                            items = tabs,
+                            selectedIndex = if (isPreviewMode) 1 else 0,
+                            onIndexSelected = { idx ->
+                                if (idx == 0) {
+                                    isPreviewMode = false
+                                } else {
                                     doSave()
-                                    if (isArchived) onBack()
+                                    isPreviewMode = true
                                 }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Delete, contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error)
-                                },
-                                onClick = {
-                                    showOverflowMenu = false
-                                    showDeleteDialog  = true
-                                }
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
-        containerColor = bgColor
-    ) { innerPadding ->
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .imePadding()
-        ) {
-            // Floating search query input row if active
-            if (isSearchInNoteActive) {
-                // Calculate match counts dynamically
-                val matchesCount = remember(content, searchInNoteQuery) {
-                    if (searchInNoteQuery.isBlank()) 0
-                    else {
-                        val occurrences = mutableListOf<Int>()
-                        var pos = content.indexOf(searchInNoteQuery, 0, ignoreCase = true)
-                        while (pos != -1) {
-                            occurrences.add(pos)
-                            pos = content.indexOf(searchInNoteQuery, pos + searchInNoteQuery.length, ignoreCase = true)
-                        }
-                        occurrences.size
-                    }
-                }
-                var activeMatchIndex by remember { mutableStateOf(0) }
-                LaunchedEffect(searchInNoteQuery) {
-                    activeMatchIndex = 0
-                }
-                
-                Surface(
-                    tonalElevation = 2.dp,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(0.5.dp, Color.LightGray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = "Search in note",
-                            tint = MidnightIndigo,
-                            modifier = Modifier.size(18.dp)
+                            },
+                            neonColor = NeonGold,
+                            modifier = Modifier.width(180.dp)
                         )
-                        BasicTextField(
-                            value = searchInNoteQuery,
-                            onValueChange = { searchInNoteQuery = it },
-                            textStyle = TextStyle(
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            ),
-                            cursorBrush = SolidColor(MidnightIndigo),
-                            modifier = Modifier.weight(1f),
-                            decorationBox = { inner ->
-                                Box {
-                                    if (searchInNoteQuery.isEmpty()) {
-                                        Text(
-                                            "Search inside this note...",
-                                            fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                                        )
-                                    }
-                                    inner()
-                                }
-                            }
-                        )
-                        if (searchInNoteQuery.isNotEmpty()) {
-                            Text(
-                                text = if (matchesCount > 0) "${activeMatchIndex + 1} of $matchesCount" else "0 of 0",
-                                fontSize = 12.sp,
-                                color = MidnightIndigo,
-                                fontWeight = FontWeight.Bold
-                            )
-                            IconButton(
-                                onClick = {
-                                    if (matchesCount > 0) {
-                                        activeMatchIndex = (activeMatchIndex - 1 + matchesCount) % matchesCount
-                                    }
-                                },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.ArrowUpward,
-                                    contentDescription = "Previous match",
-                                    tint = MidnightIndigo,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    if (matchesCount > 0) {
-                                        activeMatchIndex = (activeMatchIndex + 1) % matchesCount
-                                    }
-                                },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.ArrowDownward,
-                                    contentDescription = "Next match",
-                                    tint = MidnightIndigo,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = { searchInNoteQuery = "" },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Clear search",
-                                    tint = Color.Gray,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            doSave()
+                            onBack()
+                        }) {
+                            Icon(Icons.Rounded.ArrowBackIosNew, contentDescription = "Back", tint = NeonGold)
                         }
-                        IconButton(
-                            onClick = { isSearchInNoteActive = false },
-                            modifier = Modifier.size(24.dp)
-                        ) {
+                    },
+                    actions = {
+                        // Search in note toggle
+                        IconButton(onClick = { isSearchInNoteActive = !isSearchInNoteActive }) {
                             Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Close search",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(16.dp)
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = "Search in Note",
+                                tint = NeonGold
                             )
                         }
-                    }
-                }
-            }
-            // ── Scrollable editor body ────────────────────────────────────────
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
-                // Title field (editable in Edit Mode, read-only header in Preview)
-                if (!isPreviewMode) {
-                    BasicTextField(
-                        value         = title,
-                        onValueChange = { title = it },
-                        textStyle     = TextStyle(
-                            fontSize   = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = MaterialTheme.colorScheme.onSurface
-                        ),
-                        cursorBrush   = SolidColor(MidnightIndigo),
-                        modifier      = Modifier.fillMaxWidth(),
-                        decorationBox = { inner ->
-                            Box {
-                                if (title.isEmpty()) {
-                                    Text(
-                                        "Note Title",
-                                        fontSize   = 24.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color      = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+
+                        // Folder/Notebook picker
+                        Box {
+                            TextButton(onClick = { showFolderMenu = true }) {
+                                Text(
+                                    text = "📁 ${notebook.uppercase()}",
+                                    color = NeonGold,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    fontFamily = FiraCodeFontFamily
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showFolderMenu,
+                                onDismissRequest = { showFolderMenu = false }
+                            ) {
+                                listOf("Inbox", "Projects", "Areas", "Resources").forEach { folderName ->
+                                    DropdownMenuItem(
+                                        text = { Text(folderName) },
+                                        onClick = {
+                                            notebook = folderName
+                                            showFolderMenu = false
+                                            doSave()
+                                        }
                                     )
                                 }
-                                inner()
                             }
                         }
-                    )
-                } else {
-                    Text(
-                        text = title.ifBlank { "Untitled Note" },
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MidnightIndigo,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // Updated timestamp hint
-                val updatedText = remember(existingNote) {
-                    existingNote?.let {
-                        "Edited " + SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(it.updatedAt))
-                    } ?: "New Second Brain Note"
-                }
-                Text(
-                    updatedText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                )
-
-                Divider(
-                    modifier  = Modifier.padding(vertical = 10.dp),
-                    color     = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                )
-
-                // ── Content area: Edit vs Preview Markdown Renderer ──────────────────────
-                if (isPreviewMode) {
-                    // Modern Preview Mode
-                    MarkdownPreview(
-                        content = if (isChecklist) checklistItems.toContent() else content,
-                        searchQuery = searchInNoteQuery,
-                        onWikiLinkClicked = { targetTitle ->
-                            // Obsidian wiki-link behavior: lookup or spawn instantly!
-                            val matched = allNotesList.firstOrNull { it.title.trim().equals(targetTitle.trim(), ignoreCase = true) }
-                            if (matched != null) {
-                                // Save current in-progress edits
-                                doSave()
-                                // Navigate in-place instantly!
-                                title = matched.title
-                                content = matched.content
-                                isPinned = matched.isPinned
-                                isArchived = matched.isArchived
-                                isChecklist = matched.isChecklist
-                                colorLabel = matched.colorLabel
-                                hasReminder = matched.hasReminder
-                                reminderTime = matched.reminderTime
-                                notebook = matched.notebook
-                                noteId_final = matched.id
-                                createdAt = matched.createdAt
-                                isPreviewMode = false
-                                Toast.makeText(context, "Loaded: ${matched.title}", Toast.LENGTH_SHORT).show()
-                            } else {
-                                // Spawns a new note with that title and loads it instantly!
-                                doSave()
-                                val newNote = Note(
-                                    title = targetTitle,
-                                    content = "Spawning note from backlink [[${targetTitle}]]...\n\n",
-                                    notebook = notebook
-                                )
-                                upsertNote(context, newNote)
-                                allNotesList = loadNotes(context)
-                                
-                                title = newNote.title
-                                content = newNote.content
-                                isPinned = newNote.isPinned
-                                isArchived = newNote.isArchived
-                                isChecklist = newNote.isChecklist
-                                colorLabel = newNote.colorLabel
-                                hasReminder = newNote.hasReminder
-                                reminderTime = newNote.reminderTime
-                                notebook = newNote.notebook
-                                noteId_final = newNote.id
-                                createdAt = newNote.createdAt
-                                isPreviewMode = false
-                                Toast.makeText(context, "Spawned & opened: $targetTitle", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        onChecklistToggled = { lineIdx, isChecked ->
-                            // Dynamically update checklist line and trigger save
-                            val lines = content.split("\n").toMutableList()
-                            if (lineIdx in lines.indices) {
-                                val line = lines[lineIdx]
-                                val cleaned = line.removePrefix("[x] ").removePrefix("[X] ").removePrefix("[ ] ")
-                                lines[lineIdx] = if (isChecked) "[x] $cleaned" else "[ ] $cleaned"
-                                content = lines.joinToString("\n")
-                                doSave()
-                            }
-                        }
-                    )
-                } else {
-                    // Standard Edit Mode
-                    if (isChecklist) {
-                        ChecklistEditor(
-                            items     = checklistItems,
-                            onUpdate  = { idx, item -> checklistItems[idx] = item },
-                            onAdd     = { checklistItems.add(ChecklistItem()) },
-                            onRemove  = { idx -> if (checklistItems.size > 1) checklistItems.removeAt(idx) }
-                        )
-                    } else {
-                        BasicTextField(
-                            value         = content,
-                            onValueChange = { content = it },
-                            textStyle     = TextStyle(
-                                fontSize   = 16.sp,
-                                fontWeight = if (isBoldActive)   FontWeight.Bold   else FontWeight.Normal,
-                                fontStyle  = if (isItalicActive) FontStyle.Italic  else FontStyle.Normal,
-                                color      = MaterialTheme.colorScheme.onSurface
-                            ),
-                            cursorBrush   = SolidColor(MidnightIndigo),
-                            modifier      = Modifier
-                                .fillMaxWidth()
-                                .height(320.dp),
-                            decorationBox = { inner ->
-                                Box {
-                                    if (content.isEmpty()) {
-                                        Text(
-                                            "Start writing your thoughts using Markdown tags (#work, [[Note Link]], **bold**)...",
-                                            fontSize = 16.sp,
-                                            color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                                        )
-                                    }
-                                    inner()
-                                }
-                            }
-                        )
-                    }
-                }
-
-                // Reminder badge
-                if (hasReminder && reminderTime > 0L) {
-                    Spacer(Modifier.height(12.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MidnightIndigo.copy(alpha = 0.08f)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        // Pin toggle
+                        IconToggleButton(
+                            checked  = isPinned,
+                            onCheckedChange = { isPinned = it }
                         ) {
                             Icon(
-                                Icons.Default.NotificationsActive,
-                                contentDescription = null,
-                                tint = MidnightIndigo,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            val fmt = SimpleDateFormat("EEE, MMM d • h:mm a", Locale.getDefault())
-                            Text(
-                                fmt.format(Date(reminderTime)),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MidnightIndigo
+                                Icons.Rounded.PushPin,
+                                contentDescription = if (isPinned) "Unpin" else "Pin",
+                                tint = if (isPinned) NeonGold else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                             )
                         }
+                        // Overflow menu
+                        Box {
+                            IconButton(onClick = { showOverflowMenu = true }) {
+                                Icon(Icons.Rounded.MoreVert, contentDescription = "More", tint = NeonGold)
+                            }
+                            DropdownMenu(
+                                expanded        = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Version History") },
+                                    leadingIcon = { Icon(Icons.Rounded.History, contentDescription = null) },
+                                    onClick = {
+                                        showVersionHistorySheet = true
+                                        showOverflowMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Table of Contents") },
+                                    leadingIcon = { Icon(Icons.Rounded.ListAlt, contentDescription = null) },
+                                    onClick = {
+                                        showTOCSheet = true
+                                        showOverflowMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Backlinks") },
+                                    leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
+                                    onClick = {
+                                        showBacklinksSheet = true
+                                        showOverflowMenu = false
+                                    }
+                                )
+                                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                DropdownMenuItem(
+                                    text = { Text(if (isArchived) "Unarchive" else "Archive") },
+                                    leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
+                                    onClick = {
+                                        isArchived = !isArchived
+                                        showOverflowMenu = false
+                                        doSave()
+                                        if (isArchived) onBack()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = {
+                                        Icon(Icons.Rounded.Delete, contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error)
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showDeleteDialog  = true
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    )
+                )
+            },
+            containerColor = if (hasLabel) labelColor.copy(alpha = 0.08f) else Color.Transparent
+        ) { innerPadding ->
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .imePadding()
+            ) {
+                // Floating search query input row if active
+                if (isSearchInNoteActive) {
+                    val matchesCount = remember(content, searchInNoteQuery) {
+                        if (searchInNoteQuery.isBlank()) 0
+                        else {
+                            val occurrences = mutableListOf<Int>()
+                            var pos = content.indexOf(searchInNoteQuery, 0, ignoreCase = true)
+                            while (pos != -1) {
+                                occurrences.add(pos)
+                                pos = content.indexOf(searchInNoteQuery, pos + searchInNoteQuery.length, ignoreCase = true)
+                            }
+                            occurrences.size
+                        }
                     }
-                }
-
-                // Extra bottom padding inside scroll
-                Spacer(Modifier.height(80.dp))
-            }
-
-            // ── Keyboard accessory accessory toolbar (Markdown shortcuts bar) ──
-            if (!isPreviewMode) {
-                Surface(
-                    tonalElevation = 2.dp,
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column {
-                        // Quick insertion helper bar
+                    var activeMatchIndex by remember { mutableStateOf(0) }
+                    LaunchedEffect(searchInNoteQuery) {
+                        activeMatchIndex = 0
+                    }
+                    
+                    Surface(
+                        tonalElevation = 2.dp,
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(0.5.dp, NeonGold.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                    ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            val helpers = listOf(
-                                "Heading" to "# ",
-                                "Bold" to "**bold**",
-                                "Italic" to "*italic*",
-                                "Link" to "[[Note]]",
-                                "Checklist" to "- [ ] ",
-                                "Tag" to "#tag"
+                            Icon(
+                                Icons.Rounded.Search,
+                                contentDescription = "Search in note",
+                                tint = NeonGold,
+                                modifier = Modifier.size(18.dp)
                             )
-                            helpers.forEach { (label, value) ->
-                                TextButton(
-                                    onClick = { content += value },
-                                    modifier = Modifier.height(32.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                            BasicTextField(
+                                value = searchInNoteQuery,
+                                onValueChange = { searchInNoteQuery = it },
+                                textStyle = TextStyle(
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                ),
+                                cursorBrush = SolidColor(NeonGold),
+                                modifier = Modifier.weight(1f),
+                                decorationBox = { inner ->
+                                    Box {
+                                        if (searchInNoteQuery.isEmpty()) {
+                                            Text(
+                                                "Search inside this note...",
+                                                fontSize = 14.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                        inner()
+                                    }
+                                }
+                            )
+                            if (searchInNoteQuery.isNotEmpty()) {
+                                Text(
+                                    text = if (matchesCount > 0) "${activeMatchIndex + 1} of $matchesCount" else "0 of 0",
+                                    fontSize = 12.sp,
+                                    color = NeonGold,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FiraCodeFontFamily
+                                )
+                                IconButton(
+                                    onClick = {
+                                        if (matchesCount > 0) {
+                                            activeMatchIndex = (activeMatchIndex - 1 + matchesCount) % matchesCount
+                                        }
+                                    },
+                                    modifier = Modifier.size(24.dp)
                                 ) {
-                                    Text(label, fontSize = 11.sp, color = MidnightIndigo, fontWeight = FontWeight.Bold)
+                                    Icon(
+                                        Icons.Rounded.ArrowUpward,
+                                        contentDescription = "Previous match",
+                                        tint = NeonGold,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        if (matchesCount > 0) {
+                                            activeMatchIndex = (activeMatchIndex + 1) % matchesCount
+                                        }
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.ArrowDownward,
+                                        contentDescription = "Next match",
+                                        tint = NeonGold,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { searchInNoteQuery = "" },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Close,
+                                        contentDescription = "Clear search",
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
                             }
+                            IconButton(
+                                onClick = { isSearchInNoteActive = false },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    contentDescription = "Close search",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
-                        
-                        Divider(color = Color.LightGray.copy(alpha = 0.3f))
+                    }
+                }
 
-                        // Original layout action toolbar
-                        Row(
-                            modifier              = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment     = Alignment.CenterVertically
-                        ) {
-                            // Bold formatting switch
-                            ToolbarIconButton(
-                                onClick  = { isBoldActive = !isBoldActive },
-                                tint     = if (isBoldActive) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
-                            ) {
-                                Icon(Icons.Default.FormatBold, contentDescription = "Bold")
-                            }
-                            // Italic formatting switch
-                            ToolbarIconButton(
-                                onClick  = { isItalicActive = !isItalicActive },
-                                tint     = if (isItalicActive) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
-                            ) {
-                                Icon(Icons.Default.FormatItalic, contentDescription = "Italic")
-                            }
-                            // Checklist toggle
-                            ToolbarIconButton(
-                                onClick = {
-                                    if (!isChecklist) {
-                                        isChecklist = true
-                                        val parsed = content.toChecklistItems()
-                                        checklistItems.clear()
-                                        checklistItems.addAll(parsed)
-                                    } else {
-                                        content = checklistItems.toContent()
-                                        isChecklist = false
+                // ── Scrollable editor body ────────────────────────────────────────
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                ) {
+                    // Title field
+                    if (!isPreviewMode) {
+                        BasicTextField(
+                            value         = title,
+                            onValueChange = { title = it },
+                            textStyle     = TextStyle(
+                                fontSize   = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = MaterialTheme.colorScheme.onSurface
+                            ),
+                            cursorBrush   = SolidColor(NeonGold),
+                            modifier      = Modifier.fillMaxWidth(),
+                            decorationBox = { inner ->
+                                Box {
+                                    if (title.isEmpty()) {
+                                        Text(
+                                            "Note Title",
+                                            fontSize   = 24.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color      = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                        )
                                     }
-                                },
-                                tint = if (isChecklist) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
-                            ) {
-                                Icon(Icons.Default.Checklist, contentDescription = "Checklist")
+                                    inner()
+                                }
                             }
-                            // Color picker
-                            ToolbarIconButton(
-                                onClick = { showColorSheet = true },
-                                tint    = (NOTE_LABEL_COLORS[colorLabel] ?: MaterialTheme.colorScheme.onSurface.copy(0.55f))
-                                    .let { if (colorLabel == "None") MaterialTheme.colorScheme.onSurface.copy(0.55f) else it }
-                            ) {
-                                Icon(Icons.Default.Palette, contentDescription = "Color")
+                        )
+                    } else {
+                        Text(
+                            text = title.ifBlank { "Untitled Note" },
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonGold,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    val updatedText = remember(existingNote) {
+                        existingNote?.let {
+                            "Edited " + SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(it.updatedAt))
+                        } ?: "New Neural Note"
+                    }
+                    Text(
+                        updatedText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        fontFamily = FiraCodeFontFamily
+                    )
+
+                    Divider(
+                        modifier  = Modifier.padding(vertical = 10.dp),
+                        color     = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                    )
+
+                    // ── Content area: Edit vs Preview Markdown Renderer ──────────────────────
+                    if (isPreviewMode) {
+                        MarkdownPreview(
+                            content = if (isChecklist) checklistItems.toContent() else content,
+                            searchQuery = searchInNoteQuery,
+                            onWikiLinkClicked = { targetTitle ->
+                                val matched = allNotesList.firstOrNull { it.title.trim().equals(targetTitle.trim(), ignoreCase = true) }
+                                if (matched != null) {
+                                    doSave()
+                                    title = matched.title
+                                    content = matched.content
+                                    isPinned = matched.isPinned
+                                    isArchived = matched.isArchived
+                                    isChecklist = matched.isChecklist
+                                    colorLabel = matched.colorLabel
+                                    hasReminder = matched.hasReminder
+                                    reminderTime = matched.reminderTime
+                                    notebook = matched.notebook
+                                    noteId_final = matched.id
+                                    createdAt = matched.createdAt
+                                    isPreviewMode = false
+                                    Toast.makeText(context, "Loaded: ${matched.title}", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    doSave()
+                                    val newNote = Note(
+                                        title = targetTitle,
+                                        content = "Spawning note from backlink [[${targetTitle}]]...\n\n",
+                                        notebook = notebook
+                                    )
+                                    upsertNote(context, newNote)
+                                    allNotesList = loadNotes(context)
+                                    
+                                    title = newNote.title
+                                    content = newNote.content
+                                    isPinned = newNote.isPinned
+                                    isArchived = newNote.isArchived
+                                    isChecklist = newNote.isChecklist
+                                    colorLabel = newNote.colorLabel
+                                    hasReminder = newNote.hasReminder
+                                    reminderTime = newNote.reminderTime
+                                    notebook = newNote.notebook
+                                    noteId_final = newNote.id
+                                    createdAt = newNote.createdAt
+                                    isPreviewMode = false
+                                    Toast.makeText(context, "Spawned & opened: $targetTitle", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onChecklistToggled = { lineIdx, isChecked ->
+                                val lines = content.split("\n").toMutableList()
+                                if (lineIdx in lines.indices) {
+                                    val line = lines[lineIdx]
+                                    val cleaned = line.removePrefix("[x] ").removePrefix("[X] ").removePrefix("[ ] ")
+                                    lines[lineIdx] = if (isChecked) "[x] $cleaned" else "[ ] $cleaned"
+                                    content = lines.joinToString("\n")
+                                    doSave()
+                                }
                             }
-                            // Reminder
-                            ToolbarIconButton(
-                                onClick = { showReminderSheet = true },
-                                tint    = if (hasReminder) MidnightIndigo else MaterialTheme.colorScheme.onSurface.copy(0.55f)
+                        )
+                    } else {
+                        if (isChecklist) {
+                            ChecklistEditor(
+                                items     = checklistItems,
+                                onUpdate  = { idx, item -> checklistItems[idx] = item },
+                                onAdd     = { checklistItems.add(ChecklistItem()) },
+                                onRemove  = { idx -> if (checklistItems.size > 1) checklistItems.removeAt(idx) }
+                            )
+                        } else {
+                            BasicTextField(
+                                value         = content,
+                                onValueChange = { content = it },
+                                textStyle     = TextStyle(
+                                    fontSize   = 16.sp,
+                                    fontWeight = if (isBoldActive)   FontWeight.Bold   else FontWeight.Normal,
+                                    fontStyle  = if (isItalicActive) FontStyle.Italic  else FontStyle.Normal,
+                                    color      = MaterialTheme.colorScheme.onSurface
+                                ),
+                                cursorBrush   = SolidColor(NeonGold),
+                                modifier      = Modifier
+                                    .fillMaxWidth()
+                                    .height(320.dp),
+                                decorationBox = { inner ->
+                                    Box {
+                                        if (content.isEmpty()) {
+                                            Text(
+                                                "Start writing your thoughts using Markdown tags (#work, [[Note Link]], **bold**)...",
+                                                fontSize = 16.sp,
+                                                color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                            )
+                                        }
+                                        inner()
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    // Reminder badge
+                    if (hasReminder && reminderTime > 0L) {
+                        Spacer(Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(NeonGold.copy(alpha = 0.08f))
+                                .border(1.dp, NeonGold.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Rounded.NotificationsActive,
+                                    contentDescription = null,
+                                    tint = NeonGold,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                val fmt = SimpleDateFormat("EEE, MMM d • h:mm a", Locale.getDefault())
+                                Text(
+                                    fmt.format(Date(reminderTime)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = NeonGold,
+                                    fontFamily = FiraCodeFontFamily
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(80.dp))
+                }
+
+                // Keyboard md accessory shortcuts bar
+                if (!isPreviewMode) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                if (isSystemInDarkTheme()) NovaMidnightBlue.copy(alpha = 0.9f)
+                                else NovaPureWhite.copy(alpha = 0.9f)
+                            )
+                            .border(BorderStroke(1.dp, NeonGold.copy(alpha = 0.15f)))
+                    ) {
+                        Column {
+                            // Quick insertion helper bar
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Icon(Icons.Default.NotificationsActive, contentDescription = "Reminder")
+                                val helpers = listOf(
+                                    "Heading" to "# ",
+                                    "Bold" to "**bold**",
+                                    "Italic" to "*italic*",
+                                    "Link" to "[[Note]]",
+                                    "Checklist" to "- [ ] ",
+                                    "Tag" to "#tag"
+                                )
+                                helpers.forEach { (label, value) ->
+                                    TextButton(
+                                        onClick = { 
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            content += value 
+                                        },
+                                        modifier = Modifier.height(32.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                    ) {
+                                        Text(label, fontSize = 11.sp, color = NeonGold, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            
+                            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                            // Original layout action toolbar
+                            Row(
+                                modifier              = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment     = Alignment.CenterVertically
+                            ) {
+                                ToolbarIconButton(
+                                    onClick  = { isBoldActive = !isBoldActive },
+                                    tint     = if (isBoldActive) NeonGold else MaterialTheme.colorScheme.onSurface.copy(0.45f)
+                                ) {
+                                    Icon(Icons.Rounded.FormatBold, contentDescription = "Bold")
+                                }
+                                ToolbarIconButton(
+                                    onClick  = { isItalicActive = !isItalicActive },
+                                    tint     = if (isItalicActive) NeonGold else MaterialTheme.colorScheme.onSurface.copy(0.45f)
+                                ) {
+                                    Icon(Icons.Rounded.FormatItalic, contentDescription = "Italic")
+                                }
+                                ToolbarIconButton(
+                                    onClick = {
+                                        if (!isChecklist) {
+                                            isChecklist = true
+                                            val parsed = content.toChecklistItems()
+                                            checklistItems.clear()
+                                            checklistItems.addAll(parsed)
+                                        } else {
+                                            content = checklistItems.toContent()
+                                            isChecklist = false
+                                        }
+                                    },
+                                    tint = if (isChecklist) NeonGold else MaterialTheme.colorScheme.onSurface.copy(0.45f)
+                                ) {
+                                    Icon(Icons.Rounded.Checklist, contentDescription = "Checklist")
+                                }
+                                ToolbarIconButton(
+                                    onClick = { showColorSheet = true },
+                                    tint    = if (hasLabel) labelColor else MaterialTheme.colorScheme.onSurface.copy(0.45f)
+                                ) {
+                                    Icon(Icons.Rounded.Palette, contentDescription = "Color")
+                                }
+                                ToolbarIconButton(
+                                    onClick = { showReminderSheet = true },
+                                    tint    = if (hasReminder) NeonGold else MaterialTheme.colorScheme.onSurface.copy(0.45f)
+                                ) {
+                                    Icon(Icons.Rounded.NotificationsActive, contentDescription = "Reminder")
+                                }
                             }
                         }
                     }
@@ -1237,7 +1234,6 @@ fun parseMarkdownContent(content: String): List<RenderElement> {
             // Code block parsing
             trimmed.startsWith("```") -> {
                 val sb = java.lang.StringBuilder()
-                val lang = trimmed.removePrefix("```").trim()
                 i++
                 while (i < totalLines && !lines[i].trim().startsWith("```")) {
                     sb.append(lines[i]).append("\n")
@@ -1330,16 +1326,16 @@ fun MarkdownPreview(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         elements.forEach { elem ->
             when (elem) {
                 is HeadingElement -> {
                     val annotated = renderMarkdownSpans(elem.text, searchQuery, onWikiLinkClicked)
                     val style = when (elem.level) {
-                        1 -> MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, color = MidnightIndigo)
-                        2 -> MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = MidnightIndigo)
-                        else -> MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = MidnightIndigo)
+                        1 -> MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, color = NeonGold)
+                        2 -> MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = NeonGold)
+                        else -> MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = NeonGold)
                     }
                     ClickableText(
                         text = annotated,
@@ -1348,7 +1344,7 @@ fun MarkdownPreview(
                             annotated.getStringAnnotations(tag = "WIKI_LINK", start = offset, end = offset)
                                 .firstOrNull()?.let { ann -> onWikiLinkClicked(ann.item) }
                         },
-                        modifier = Modifier.padding(vertical = 2.dp)
+                        modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
                 is ChecklistElement -> {
@@ -1360,8 +1356,8 @@ fun MarkdownPreview(
                             checked = elem.isChecked,
                             onCheckedChange = { onChecklistToggled(elem.originalLineIndex, it) },
                             colors = CheckboxDefaults.colors(
-                                checkedColor = MidnightIndigo,
-                                checkmarkColor = Color.White
+                                checkedColor = NeonGold,
+                                checkmarkColor = NovaDeepInk
                             )
                         )
                         val annotated = renderMarkdownSpans(elem.text, searchQuery, onWikiLinkClicked)
@@ -1379,18 +1375,17 @@ fun MarkdownPreview(
                     }
                 }
                 is CodeBlockElement -> {
-                    Card(
-                        shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.Gray.copy(alpha = 0.08f)),
-                        border = BorderStroke(0.5.dp, Color.LightGray.copy(alpha = 0.4f)),
+                    GlassCard(
+                        neonAccent = NeonGold.copy(alpha = 0.3f),
+                        cornerRadius = NovaTokens.Radius.md,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
                             text = elem.content,
                             fontSize = 13.sp,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            color = MidnightIndigo,
-                            modifier = Modifier.padding(12.dp)
+                            fontFamily = FiraCodeFontFamily,
+                            color = NeonGold,
+                            modifier = Modifier.padding(14.dp)
                         )
                     }
                 }
@@ -1429,31 +1424,35 @@ fun MarkdownPreview(
 
 @Composable
 fun RenderTable(headers: List<String>, rows: List<List<String>>, searchQuery: String = "", onWikiLinkClicked: (String) -> Unit) {
+    val isDark = isSystemInDarkTheme()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(0.5.dp, Color.LightGray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            .border(0.5.dp, NeonGold.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
             .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+            .background(
+                if (isDark) NovaMidnightBlue.copy(alpha = 0.5f)
+                else NovaCoolGray50.copy(alpha = 0.5f)
+            )
     ) {
         // Headers
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MidnightIndigo.copy(alpha = 0.08f))
+                .background(NeonGold.copy(alpha = 0.12f))
                 .padding(vertical = 10.dp, horizontal = 12.dp)
         ) {
             headers.forEach { header ->
                 Text(
                     text = header,
                     fontWeight = FontWeight.Bold,
-                    color = MidnightIndigo,
+                    color = NeonGold,
                     fontSize = 13.sp,
                     modifier = Modifier.weight(1f)
                 )
             }
         }
-        Divider(color = Color.LightGray.copy(alpha = 0.3f))
+        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
         // Rows
         rows.forEachIndexed { rowIndex, row ->
             Row(
@@ -1475,7 +1474,7 @@ fun RenderTable(headers: List<String>, rows: List<List<String>>, searchQuery: St
                 }
             }
             if (rowIndex < rows.size - 1) {
-                Divider(color = Color.LightGray.copy(alpha = 0.2f))
+                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
             }
         }
     }
@@ -1490,10 +1489,10 @@ fun RenderCollapsible(
     onChecklistToggled: (Int, Boolean) -> Unit
 ) {
     var isExpanded by remember { mutableStateOf(false) }
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)),
-        border = BorderStroke(0.5.dp, Color.LightGray.copy(alpha = 0.4f)),
+    
+    GlassCard(
+        neonAccent = NeonGold.copy(alpha = 0.3f),
+        cornerRadius = NovaTokens.Radius.md,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -1506,13 +1505,13 @@ fun RenderCollapsible(
                 Text(
                     text = if (isExpanded) "▼" else "▶",
                     fontSize = 12.sp,
-                    color = MidnightIndigo,
+                    color = NeonGold,
                     modifier = Modifier.padding(end = 8.dp)
                 )
                 Text(
                     text = title,
                     fontWeight = FontWeight.Bold,
-                    color = MidnightIndigo,
+                    color = NeonGold,
                     fontSize = 14.sp,
                     modifier = Modifier.weight(1f)
                 )
@@ -1570,7 +1569,7 @@ fun renderMarkdownSpans(
                     pushStringAnnotation(tag = "WIKI_LINK", annotation = targetTitle)
                     withStyle(
                         style = SpanStyle(
-                            color = MidnightIndigo,
+                            color = NeonGold,
                             textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
                             fontWeight = FontWeight.Bold
                         )
@@ -1595,7 +1594,7 @@ fun renderMarkdownSpans(
                     val tagName = firstMatch.groupValues[1]
                     withStyle(
                         style = SpanStyle(
-                            color = MidnightIndigo.copy(alpha = 0.8f),
+                            color = NeonGold.copy(alpha = 0.8f),
                             fontWeight = FontWeight.SemiBold
                         )
                     ) {
@@ -1640,7 +1639,7 @@ private fun ChecklistEditor(
     onAdd    : () -> Unit,
     onRemove : (Int) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         items.forEachIndexed { idx, item ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1650,8 +1649,8 @@ private fun ChecklistEditor(
                     checked         = item.isChecked,
                     onCheckedChange = { onUpdate(idx, item.copy(isChecked = it)) },
                     colors          = CheckboxDefaults.colors(
-                        checkedColor = MidnightIndigo,
-                        checkmarkColor = Color.White
+                        checkedColor = NeonGold,
+                        checkmarkColor = NovaDeepInk
                     )
                 )
                 BasicTextField(
@@ -1667,15 +1666,15 @@ private fun ChecklistEditor(
                             androidx.compose.ui.text.style.TextDecoration.LineThrough
                         else null
                     ),
-                    cursorBrush   = SolidColor(MidnightIndigo),
+                    cursorBrush   = SolidColor(NeonGold),
                     modifier      = Modifier.weight(1f),
                     decorationBox = { inner ->
                         Box {
                             if (item.text.isEmpty()) {
-                                Text(
+                                  Text(
                                     "List item",
                                     fontSize = 16.sp,
-                                    color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                    color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                 )
                             }
                             inner()
@@ -1684,7 +1683,7 @@ private fun ChecklistEditor(
                 )
                 IconButton(onClick = { onRemove(idx) }, modifier = Modifier.size(32.dp)) {
                     Icon(
-                        Icons.Default.Close,
+                        Icons.Rounded.Close,
                         contentDescription = "Remove item",
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
@@ -1692,11 +1691,12 @@ private fun ChecklistEditor(
                 }
             }
         }
+        
         TextButton(onClick = onAdd) {
-            Icon(Icons.Default.Add, contentDescription = null,
-                modifier = Modifier.size(14.dp), tint = MidnightIndigo)
+            Icon(Icons.Rounded.Add, contentDescription = null,
+                modifier = Modifier.size(14.dp), tint = NeonGold)
             Spacer(Modifier.width(4.dp))
-            Text("Add item", color = MidnightIndigo, style = MaterialTheme.typography.bodyMedium)
+            Text("Add item", color = NeonGold, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -1719,14 +1719,14 @@ private fun ColorCircle(
             .background(color)
             .border(
                 width  = if (isSelected) 3.dp else 1.dp,
-                color  = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.outline.copy(0.3f),
+                color  = if (isSelected) NeonGold else MaterialTheme.colorScheme.outline.copy(0.3f),
                 shape  = CircleShape
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (isSelected) {
-            Text("✓", fontSize = 16.sp, color = MidnightIndigo, fontWeight = FontWeight.Bold)
+            Text("✓", fontSize = 16.sp, color = NeonGold, fontWeight = FontWeight.Black)
         }
     }
 }

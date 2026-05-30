@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.anegan.feature.notes"
-    compileSdk = 34
+    compileSdk = 35
     defaultConfig { minSdk = 29 }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -25,6 +25,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
+    implementation("androidx.compose.foundation:foundation")
     implementation(project(":core:database"))
     implementation(project(":core:designsystem"))
 }

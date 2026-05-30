@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.anegan.feature.filemanager"
-    compileSdk = 34
+    compileSdk = 35
     defaultConfig { minSdk = 29 }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -25,5 +25,7 @@ dependencies {
     implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
 
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.activity:activity-compose:1.8.2")
     implementation(project(":core:designsystem"))
 }

@@ -37,7 +37,6 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.anegan.core.conversion.StorageManager
-import com.anegan.core.designsystem.theme.MidnightIndigo
 import com.anegan.core.designsystem.theme.PureWhite
 import com.anegan.feature.conversion.worker.ImageBatchConversionWorker
 import kotlinx.coroutines.Dispatchers
@@ -58,11 +57,14 @@ fun ConversionFlowScreen(
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    var quality by remember {
+    var compressionMode by remember { mutableStateOf(CompressionMode.QUALITY_RESOLUTION) }
+    var qualityInt by remember {
         val qStr = presetParams?.get("quality")
-        val qVal = qStr?.toFloatOrNull()?.let { it / 100f } ?: 0.8f
+        val qVal = qStr?.toIntOrNull() ?: 80
         mutableStateOf(qVal)
     }
+    var scale by remember { mutableStateOf(1.0f) }
+    var targetSizeMb by remember { mutableStateOf("1.0") }
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var selectedFileName by remember { mutableStateOf<String?>(null) }
     var selectedFileSize by remember { mutableStateOf<Long?>(null) }
@@ -178,7 +180,7 @@ fun ConversionFlowScreen(
             Text(
                 text = "← ",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .clickable { onBack() }
                     .padding(end = 12.dp)
@@ -186,7 +188,7 @@ fun ConversionFlowScreen(
             Text(
                 text = "Image Tools & Converter",
                 style = MaterialTheme.typography.displayLarge.copy(fontSize = 24.sp),
-                color = MidnightIndigo
+                color = MaterialTheme.colorScheme.primary
             )
         }
 
@@ -204,19 +206,19 @@ fun ConversionFlowScreen(
         ) {
             if (selectedFileName != null) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
-                    Text(selectedFileName!!, color = MidnightIndigo, fontSize = 15.sp)
+                    Text(selectedFileName!!, color = MaterialTheme.colorScheme.primary, fontSize = 15.sp)
                     val sizeMb = (selectedFileSize ?: 0L) / (1024f * 1024f)
                     Text(String.format("%.2f MB", sizeMb), color = Color.Gray, fontSize = 12.sp)
                 }
             } else {
-                Text("Tap to Select Image (JPG, PNG, WEBP, HEIC, AVIF)", color = MidnightIndigo)
+                Text("Tap to Select Image (JPG, PNG, WEBP, HEIC, AVIF)", color = MaterialTheme.colorScheme.primary)
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // Target Format selection
-        Text("Target Format", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
+        Text("Target Format", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val formats = listOf("JPG", "PNG", "WEBP")
@@ -225,8 +227,8 @@ fun ConversionFlowScreen(
                 Button(
                     onClick = { targetFormat = fmt },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.surface,
-                        contentColor = if (isSelected) PureWhite else MidnightIndigo
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                        contentColor = if (isSelected) PureWhite else MaterialTheme.colorScheme.primary
                     ),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -238,12 +240,14 @@ fun ConversionFlowScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         AdvancedSizeResolutionController(
-            initialQuality = (quality * 100).toInt(),
-            onQualityChanged = { quality = it / 100f },
-            onScaleChanged = {},
+            initialMode = compressionMode,
+            initialQuality = qualityInt,
+            initialTargetSizeMb = targetSizeMb,
+            onModeChanged = { compressionMode = it },
+            onQualityChanged = { qualityInt = it },
+            onScaleChanged = { scale = it },
             onResolutionChanged = { _, _ -> },
-            onTargetSizeChanged = {},
-            onModeChanged = {}
+            onTargetSizeChanged = { targetSizeMb = it }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -255,11 +259,11 @@ fun ConversionFlowScreen(
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text("Advanced Resize, Rotate & Crop", style = MaterialTheme.typography.titleMedium, color = MidnightIndigo)
+                Text("Advanced Resize, Rotate & Crop", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Resize
-                Text("Resize Dimensions (Optional)", fontSize = 14.sp, color = MidnightIndigo)
+                Text("Resize Dimensions (Optional)", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
@@ -267,21 +271,21 @@ fun ConversionFlowScreen(
                         onValueChange = { resizeWidth = it },
                         label = { Text("Width (px)") },
                         modifier = Modifier.weight(1f),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MidnightIndigo, focusedLabelColor = MidnightIndigo)
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
                     )
                     OutlinedTextField(
                         value = resizeHeight,
                         onValueChange = { resizeHeight = it },
                         label = { Text("Height (px)") },
                         modifier = Modifier.weight(1f),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MidnightIndigo, focusedLabelColor = MidnightIndigo)
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Rotation
-                Text("Rotation (Optional)", fontSize = 14.sp, color = MidnightIndigo)
+                Text("Rotation (Optional)", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val rotations = listOf(0f, 90f, 180f, 270f)
@@ -290,8 +294,8 @@ fun ConversionFlowScreen(
                         Button(
                             onClick = { rotationValue = rot },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) MidnightIndigo else MaterialTheme.colorScheme.background,
-                                contentColor = if (isSelected) PureWhite else MidnightIndigo
+                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background,
+                                contentColor = if (isSelected) PureWhite else MaterialTheme.colorScheme.primary
                             ),
                             modifier = Modifier.weight(1f),
                             contentPadding = PaddingValues(0.dp)
@@ -304,7 +308,7 @@ fun ConversionFlowScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Crop
-                Text("Crop Box (Optional)", fontSize = 14.sp, color = MidnightIndigo)
+                Text("Crop Box (Optional)", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -312,14 +316,14 @@ fun ConversionFlowScreen(
                         onValueChange = { cropX = it },
                         label = { Text("X Offset") },
                         modifier = Modifier.weight(1f),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MidnightIndigo, focusedLabelColor = MidnightIndigo)
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
                     )
                     OutlinedTextField(
                         value = cropY,
                         onValueChange = { cropY = it },
                         label = { Text("Y Offset") },
                         modifier = Modifier.weight(1f),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MidnightIndigo, focusedLabelColor = MidnightIndigo)
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -329,14 +333,14 @@ fun ConversionFlowScreen(
                         onValueChange = { cropW = it },
                         label = { Text("Width") },
                         modifier = Modifier.weight(1f),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MidnightIndigo, focusedLabelColor = MidnightIndigo)
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
                     )
                     OutlinedTextField(
                         value = cropH,
                         onValueChange = { cropH = it },
                         label = { Text("Height") },
                         modifier = Modifier.weight(1f),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MidnightIndigo, focusedLabelColor = MidnightIndigo)
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
                     )
                 }
             }
@@ -344,7 +348,7 @@ fun ConversionFlowScreen(
 
         if (isConverting) {
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Progress: ${(progress * 100).toInt()}%", color = MidnightIndigo, style = MaterialTheme.typography.bodyLarge)
+            Text("Progress: ${(progress * 100).toInt()}%", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(8.dp))
             LinearProgressIndicator(
                 progress = progress,
@@ -352,7 +356,7 @@ fun ConversionFlowScreen(
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
-                color = MidnightIndigo,
+                color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surface
             )
         }
@@ -373,6 +377,17 @@ fun ConversionFlowScreen(
                     return@Button
                 }
 
+                val targetSizeBytes = if (compressionMode == CompressionMode.TARGET_SIZE) {
+                    val sizeVal = targetSizeMb.toDoubleOrNull()
+                    if (sizeVal == null || sizeVal <= 0) {
+                        Toast.makeText(context, "Please enter a valid target size (MB)", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    (sizeVal * 1024 * 1024).toLong()
+                } else {
+                    -1L
+                }
+
                 isConverting = true
                 progress = 0f
                 coroutineScope.launch {
@@ -386,7 +401,6 @@ fun ConversionFlowScreen(
                             return@launch
                         }
                         
-                        val targetSize = (selectedFileSize ?: 1024L) * quality
                         val rWidth = resizeWidth.toIntOrNull() ?: -1
                         val rHeight = resizeHeight.toIntOrNull() ?: -1
                         val cX = cropX.toIntOrNull() ?: -1
@@ -402,8 +416,8 @@ fun ConversionFlowScreen(
                                     "originalFileName" to (selectedFileName ?: tempFile.name),
                                     "originalFileSize" to (selectedFileSize ?: tempFile.length()),
                                     "format" to targetFormat,
-                                    "quality" to (quality * 100).toInt(),
-                                    "targetSizeBytes" to targetSize.toLong(),
+                                    "quality" to qualityInt,
+                                    "targetSizeBytes" to targetSizeBytes,
                                     "exactWidth" to rWidth,
                                     "exactHeight" to rHeight,
                                     "rotationDegrees" to rotationValue,
@@ -427,7 +441,7 @@ fun ConversionFlowScreen(
                 .fillMaxWidth()
                 .height(56.dp),
             enabled = !isConverting,
-            colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo, contentColor = PureWhite)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = PureWhite)
         ) {
             if (isConverting) {
                 CircularProgressIndicator(color = PureWhite, modifier = Modifier.size(24.dp))

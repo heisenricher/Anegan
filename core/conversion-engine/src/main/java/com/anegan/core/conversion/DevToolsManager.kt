@@ -67,7 +67,12 @@ class DevToolsManager {
         }
     }
 
-    suspend fun generateQrCode(text: String, size: Int = 512): Result<Bitmap> = withContext(Dispatchers.Default) {
+    suspend fun generateQrCode(
+        text: String,
+        size: Int = 512,
+        fgColor: Int = android.graphics.Color.BLACK,
+        bgColor: Int = android.graphics.Color.WHITE
+    ): Result<Bitmap> = withContext(Dispatchers.Default) {
         try {
             val writer = QRCodeWriter()
             val bitMatrix = writer.encode(text, BarcodeFormat.QR_CODE, size, size)
@@ -76,7 +81,7 @@ class DevToolsManager {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             for (x in 0 until width) {
                 for (y in 0 until height) {
-                    bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                    bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) fgColor else bgColor)
                 }
             }
             Result.success(bitmap)

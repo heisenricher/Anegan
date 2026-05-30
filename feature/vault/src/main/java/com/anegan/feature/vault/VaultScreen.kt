@@ -11,6 +11,7 @@ import android.provider.OpenableColumns
 import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.*
@@ -56,7 +57,12 @@ import androidx.security.crypto.MasterKeys
 import com.anegan.core.database.DatabaseProvider
 import com.anegan.core.database.VaultFileDao
 import com.anegan.core.database.VaultFileEntity
-import com.anegan.core.designsystem.theme.MidnightIndigo
+import com.anegan.core.designsystem.theme.*
+import android.widget.Toast
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -157,16 +163,16 @@ data class VaultCategory(
 )
 
 val vaultCategories = listOf(
-    VaultCategory("aadhaar",    "Aadhaar ID",        "🪪", "Government UID card",       Color(0xFF1565C0)),
-    VaultCategory("pan",        "PAN Card",          "💳", "Income Tax ID",            Color(0xFF2E7D32)),
-    VaultCategory("passport",   "Passport",          "📕", "Travel document",          Color(0xFF6A1B9A)),
-    VaultCategory("insurance",  "Insurance",         "🛡️", "Health & Auto policy",      Color(0xFF00838F)),
-    VaultCategory("medical",    "Medical",           "🏥", "Prescriptions & reports",  Color(0xFFC62828)),
-    VaultCategory("education",  "Certificates",      "🎓", "Degrees & marks",          Color(0xFFE65100)),
-    VaultCategory("legal",      "Legal Docs",        "⚖️", "Agreements & deeds",       Color(0xFF37474F)),
-    VaultCategory("personal",   "Personal Photos",   "🖼️", "Private snapshots",        Color(0xFFAD1457)),
-    VaultCategory("work",       "Work Docs",         "📁", "Office & projects",        Color(0xFF4E342E)),
-    VaultCategory("other",      "Other Files",       "📁", "Miscellaneous docs",       Color(0xFF424242))
+    VaultCategory("aadhaar",    "Aadhaar ID",        "🪪", "Government UID card",       NeonBlue),
+    VaultCategory("pan",        "PAN Card",          "💳", "Income Tax ID",            NeonLime),
+    VaultCategory("passport",   "Passport",          "📕", "Travel document",          NeonPurple),
+    VaultCategory("insurance",  "Insurance",         "🛡️", "Health & Auto policy",      NeonCyan),
+    VaultCategory("medical",    "Medical",           "🏥", "Prescriptions & reports",  NeonMagenta),
+    VaultCategory("education",  "Certificates",      "🎓", "Degrees & marks",          NeonGold),
+    VaultCategory("legal",      "Legal Docs",        "⚖️", "Agreements & deeds",       NeonCyan),
+    VaultCategory("personal",   "Personal Photos",   "🖼️", "Private snapshots",        NeonMagenta),
+    VaultCategory("work",       "Work Docs",         "📁", "Office & projects",        NeonPurple),
+    VaultCategory("other",      "Other Files",       "📁", "Miscellaneous docs",       NeonGold)
 )
 
 val BIP39_WORDS = listOf(
@@ -198,26 +204,28 @@ fun VaultScreen(onBack: () -> Unit) {
         }
     }
 
-    when {
-        !hasCompletedOnboarding -> VaultSetupWalkthrough(
-            onSetupFinished = {
-                prefs.edit().putBoolean("vault_setup_done", true).apply()
-                hasCompletedOnboarding = true
-                isUnlocked = true
-            },
-            onBack = onBack
-        )
-        !isUnlocked -> VaultLockScreen(
-            context = context,
-            prefs = prefs,
-            onUnlocked = { isUnlocked = true },
-            onBack = onBack
-        )
-        else -> VaultDashboardScreen(
-            prefs = prefs,
-            onLock = { isUnlocked = false },
-            onBack = onBack
-        )
+    NovaBackground(modifier = Modifier.fillMaxSize()) {
+        when {
+            !hasCompletedOnboarding -> VaultSetupWalkthrough(
+                onSetupFinished = {
+                    prefs.edit().putBoolean("vault_setup_done", true).apply()
+                    hasCompletedOnboarding = true
+                    isUnlocked = true
+                },
+                onBack = onBack
+            )
+            !isUnlocked -> VaultLockScreen(
+                context = context,
+                prefs = prefs,
+                onUnlocked = { isUnlocked = true },
+                onBack = onBack
+            )
+            else -> VaultDashboardScreen(
+                prefs = prefs,
+                onLock = { isUnlocked = false },
+                onBack = onBack
+            )
+        }
     }
 }
 
@@ -278,10 +286,12 @@ fun VaultSetupWalkthrough(onSetupFinished: () -> Unit, onBack: () -> Unit) {
 @Composable
 fun VaultPrivacyExplanationScreen(onNext: () -> Unit, onBack: () -> Unit) {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            SmallTopAppBar(
-                title = { Text("Anegan Vault Setup") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+            NovaTopBar(
+                title = "Vault Setup",
+                onBack = onBack,
+                neonAccent = NeonPurple
             )
         }
     ) { padding ->
@@ -302,25 +312,27 @@ fun VaultPrivacyExplanationScreen(onNext: () -> Unit, onBack: () -> Unit) {
                 Spacer(Modifier.height(24.dp))
                 Text(
                     "Encrypted Offline Storage",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Center,
-                    color = MidnightIndigo
+                    style = NovaTypography.headlineLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.ExtraBold
+                    ),
+                    textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "Your files never leave your device.",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                    style = NovaTypography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        fontWeight = FontWeight.Bold
+                    ),
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(24.dp))
                 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(16.dp)
+                GlassCard(
+                    neonAccent = NeonPurple,
+                    enableGlow = true,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         PrivacyBullet("🔒 AES-256 Encryption", "All vault files are encrypted locally using industrial-grade hardware-backed keys.")
@@ -330,14 +342,14 @@ fun VaultPrivacyExplanationScreen(onNext: () -> Unit, onBack: () -> Unit) {
                 }
             }
 
-            Button(
+            Spacer(Modifier.height(24.dp))
+
+            NovaPrimaryButton(
+                text = "Agree & Continue",
+                neonColor = NeonPurple,
                 onClick = onNext,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo),
-                shape = RoundedCornerShape(28.dp)
-            ) {
-                Text("Agree & Continue", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -345,8 +357,21 @@ fun VaultPrivacyExplanationScreen(onNext: () -> Unit, onBack: () -> Unit) {
 @Composable
 fun PrivacyBullet(title: String, desc: String) {
     Column {
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MidnightIndigo)
-        Text(desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        Text(
+            text = title,
+            style = NovaTypography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = NeonPurple
+            )
+        )
+        Text(
+            text = desc,
+            style = NovaTypography.bodySmall.copy(
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        )
     }
 }
 
@@ -356,12 +381,15 @@ fun VaultPinCreationScreen(onPinCreated: (String) -> Unit, onBack: () -> Unit) {
     var confirmPin by remember { mutableStateOf("") }
     var step by remember { mutableStateOf(0) } // 0=enter, 1=confirm
     var error by remember { mutableStateOf("") }
+    val view = LocalView.current
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            SmallTopAppBar(
-                title = { Text("Setup Secure PIN") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+            NovaTopBar(
+                title = "Setup Secure PIN",
+                onBack = onBack,
+                neonAccent = NeonPurple
             )
         }
     ) { padding ->
@@ -376,15 +404,18 @@ fun VaultPinCreationScreen(onPinCreated: (String) -> Unit, onBack: () -> Unit) {
             Text("🔑", fontSize = 64.sp)
             Spacer(Modifier.height(16.dp))
             Text(
-                if (step == 0) "Create a 4-digit PIN for your Vault" else "Re-enter PIN to confirm",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                text = if (step == 0) "Create a 4-digit PIN for your Vault" else "Re-enter PIN to confirm",
+                style = NovaTypography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(24.dp))
             PinDots(length = if (step == 0) pin.length else confirmPin.length)
             Spacer(Modifier.height(16.dp))
             if (error.isNotEmpty()) {
-                Text(error, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                Text(
+                    text = error,
+                    style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                )
                 Spacer(Modifier.height(8.dp))
             }
             NumberPad(
@@ -401,8 +432,10 @@ fun VaultPinCreationScreen(onPinCreated: (String) -> Unit, onBack: () -> Unit) {
                             confirmPin += d
                             if (confirmPin.length == 4) {
                                 if (confirmPin == pin) {
+                                    NovaHaptics.success(view)
                                     onPinCreated(pin)
                                 } else {
+                                    NovaHaptics.warning(view)
                                     error = "PINs do not match. Restarting."
                                     pin = ""
                                     confirmPin = ""
@@ -424,11 +457,16 @@ fun VaultPinCreationScreen(onPinCreated: (String) -> Unit, onBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VaultRecoveryPhraseScreen(phrase: List<String>, onNext: () -> Unit, onBack: () -> Unit) {
+    val view = LocalView.current
+    val context = LocalContext.current
+
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            SmallTopAppBar(
-                title = { Text("Write Down Recovery Phrase") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+            NovaTopBar(
+                title = "Recovery Phrase",
+                onBack = onBack,
+                neonAccent = NeonPurple
             )
         }
     ) { padding ->
@@ -445,51 +483,92 @@ fun VaultRecoveryPhraseScreen(phrase: List<String>, onNext: () -> Unit, onBack: 
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "Your Offline Master Key",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = NovaTypography.headlineMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
                     "If you forget your PIN, this phrase is the ONLY way to recover your vault. Write it down. Store it somewhere safe offline.",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = NovaTypography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(vertical = 12.dp)
                 )
 
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Spacer(Modifier.height(16.dp))
+
+                GlassCard(
+                    neonAccent = NeonPurple,
+                    enableGlow = true,
+                    onClick = {
+                        try {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("Anegan Vault Recovery Phrase", phrase.joinToString(" "))
+                            clipboard.setPrimaryClip(clip)
+                            NovaHaptics.confirm(view)
+                            Toast.makeText(context, "Recovery phrase copied!", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(phrase.size) { i ->
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                            shape = RoundedCornerShape(8.dp)
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("${i + 1}.", fontSize = 10.sp, color = MidnightIndigo.copy(alpha = 0.5f))
-                                Spacer(Modifier.width(4.dp))
-                                Text(phrase[i], fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            items(phrase.size) { i ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(NovaGlassWhite)
+                                        .border(1.dp, NovaGlassBorderW, RoundedCornerShape(8.dp))
+                                        .padding(8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "${i + 1}.",
+                                            style = NovaTypography.tagMono.copy(
+                                                color = NeonPurple.copy(alpha = 0.6f)
+                                            )
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = phrase[i],
+                                            style = NovaTypography.codeMono.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        )
+                                    }
+                                }
                             }
                         }
+                        
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Tap Card to Copy Phrase",
+                            style = NovaTypography.tagMono.copy(color = NeonPurple)
+                        )
                     }
                 }
             }
 
-            Button(
+            Spacer(Modifier.height(16.dp))
+
+            NovaPrimaryButton(
+                text = "I've Written It Down",
+                neonColor = NeonPurple,
                 onClick = onNext,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo),
-                shape = RoundedCornerShape(28.dp)
-            ) {
-                Text("I've Written It Down", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -502,18 +581,22 @@ fun VaultSettingsSetupScreen(
     onFinish: () -> Unit,
     onBack: () -> Unit
 ) {
+    val view = LocalView.current
     val lockOptions = listOf(
         30000L to "30 Seconds",
         60000L to "1 Minute",
         300000L to "5 Minutes",
         600000L to "10 Minutes"
     )
+    val selectedIndex = lockOptions.indexOfFirst { it.first == currentAutoLock }.coerceAtLeast(0)
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            SmallTopAppBar(
-                title = { Text("Vault Settings") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+            NovaTopBar(
+                title = "Vault Settings",
+                onBack = onBack,
+                neonAccent = NeonPurple
             )
         }
     ) { padding ->
@@ -525,17 +608,22 @@ fun VaultSettingsSetupScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("⏱️", fontSize = 64.sp)
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "Auto-Lock Inactivity Timeout",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    text = "Auto-Lock Timeout",
+                    style = NovaTypography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
                 )
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    "Choose how long the vault remains unlocked when idle. Re-minimizing the app will lock the vault immediately regardless of this choice.",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "Choose how long the vault remains unlocked when idle. Re-minimizing the app will lock the vault immediately regardless of this choice.",
+                    style = NovaTypography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(vertical = 12.dp)
@@ -543,39 +631,42 @@ fun VaultSettingsSetupScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                lockOptions.forEach { opt ->
-                    val isSelected = currentAutoLock == opt.first
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (isSelected) MidnightIndigo.copy(alpha = 0.1f)
-                                else Color.Transparent
-                            )
-                            .clickable { onAutoLockChange(opt.first) }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                GlassCard(
+                    neonAccent = NeonPurple,
+                    enableGlow = true,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(opt.second, fontWeight = FontWeight.SemiBold)
-                        RadioButton(
-                            selected = isSelected,
-                            onClick = { onAutoLockChange(opt.first) },
-                            colors = RadioButtonDefaults.colors(selectedColor = MidnightIndigo)
+                        Text(
+                            text = "INACTIVITY DURATION",
+                            style = NovaTypography.tagMono.copy(color = NeonPurple)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        
+                        NovaSegmentedControl(
+                            items = listOf("30s", "1m", "5m", "10m"),
+                            selectedIndex = selectedIndex,
+                            onIndexSelected = { idx ->
+                                NovaHaptics.swipeSnap(view)
+                                onAutoLockChange(lockOptions[idx].first)
+                            },
+                            neonColor = NeonPurple
                         )
                     }
                 }
             }
 
-            Button(
+            Spacer(Modifier.height(16.dp))
+
+            NovaPrimaryButton(
+                text = "Complete Vault Setup",
+                neonColor = NeonPurple,
                 onClick = onFinish,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo),
-                shape = RoundedCornerShape(28.dp)
-            ) {
-                Text("Complete Vault Setup", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -589,6 +680,7 @@ private fun delayMs(ms: Long, action: () -> Unit) {
 // Vault Lock / Unlock Screen
 // ─────────────────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VaultLockScreen(
     context: Context,
@@ -600,13 +692,17 @@ fun VaultLockScreen(
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     val savedPin = prefs.getString("vault_pin", "") ?: ""
+    val view = LocalView.current
 
     var cooldownSeconds by remember { mutableStateOf(0) }
     var failedAttempts by remember { mutableStateOf(prefs.getInt("vault_failed_attempts", 0)) }
     var showRecoveryDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        tryBiometric(context, onSuccess = onUnlocked, onError = { /* fall back */ })
+        tryBiometric(context, onSuccess = {
+            NovaHaptics.success(view)
+            onUnlocked()
+        }, onError = { /* fall back */ })
     }
 
     LaunchedEffect(cooldownSeconds) {
@@ -617,10 +713,12 @@ fun VaultLockScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            SmallTopAppBar(
-                title = { Text("Vault Locked") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+            NovaTopBar(
+                title = "Vault Locked",
+                onBack = onBack,
+                neonAccent = NeonPurple
             )
         }
     ) { padding ->
@@ -634,16 +732,25 @@ fun VaultLockScreen(
         ) {
             Text("🔒", fontSize = 64.sp)
             Spacer(Modifier.height(16.dp))
-            Text("Enter Vault PIN", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                text = "Enter Vault PIN",
+                style = NovaTypography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+            )
             Spacer(Modifier.height(24.dp))
             PinDots(length = pin.length)
             Spacer(Modifier.height(16.dp))
 
             if (cooldownSeconds > 0) {
-                Text("Cooldown active. Try again in $cooldownSeconds seconds.", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                Text(
+                    text = "Cooldown active. Try again in $cooldownSeconds seconds.",
+                    style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                )
                 Spacer(Modifier.height(8.dp))
             } else if (error.isNotEmpty()) {
-                Text(error, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                Text(
+                    text = error,
+                    style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                )
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -654,11 +761,13 @@ fun VaultLockScreen(
                         if (pin.length == 4) {
                             if (pin == savedPin) {
                                 prefs.edit().putInt("vault_failed_attempts", 0).apply()
+                                NovaHaptics.success(view)
                                 onUnlocked()
                             } else {
                                 pin = ""
                                 failedAttempts++
                                 prefs.edit().putInt("vault_failed_attempts", failedAttempts).apply()
+                                NovaHaptics.warning(view)
                                 if (failedAttempts >= 5) {
                                     cooldownSeconds = 30
                                     error = "Too many failed attempts. Cooldown started."
@@ -674,17 +783,41 @@ fun VaultLockScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedButton(onClick = {
-                    tryBiometric(context, onSuccess = onUnlocked, onError = { error = "Biometric failed or rejected" })
-                }) {
-                    Icon(Icons.Default.Fingerprint, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Fingerprint")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    NovaSecondaryButton(
+                        text = "Fingerprint",
+                        neonColor = NeonPurple,
+                        onClick = {
+                            NovaHaptics.click(view)
+                            tryBiometric(context, onSuccess = {
+                                NovaHaptics.success(view)
+                                onUnlocked()
+                            }, onError = {
+                                NovaHaptics.warning(view)
+                                error = "Biometric failed or rejected"
+                            })
+                        },
+                        icon = Icons.Default.Fingerprint,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
-                TextButton(onClick = { showRecoveryDialog = true }) {
-                    Text("Forgot PIN?")
+                TextButton(
+                    onClick = {
+                        NovaHaptics.click(view)
+                        showRecoveryDialog = true
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Forgot PIN?",
+                        style = NovaTypography.labelLarge.copy(color = NeonPurple, fontWeight = FontWeight.Bold)
+                    )
                 }
             }
         }
@@ -695,46 +828,100 @@ fun VaultLockScreen(
         var recoveryError by remember { mutableStateOf("") }
         val savedRecovery = prefs.getString("vault_recovery_phrase", "") ?: ""
 
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showRecoveryDialog = false },
-            title = { Text("Reset PIN via Recovery Phrase") },
-            text = {
-                Column {
-                    Text("Enter your 12-word recovery phrase to unlock the vault and reset your PIN:", fontSize = 12.sp)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = recoveryInput,
-                        onValueChange = { recoveryInput = it },
-                        label = { Text("12 Words") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (recoveryError.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(recoveryError, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .wrapContentHeight()
+            ) {
+                GlassCard(
+                    neonAccent = NeonPurple,
+                    enableGlow = true
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "RESET VAULT PIN",
+                            style = NovaTypography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = NeonPurple,
+                                fontFamily = SpaceGrotesk
+                            )
+                        )
+                        
+                        Text(
+                            text = "Enter your 12-word recovery phrase to unlock the vault and reset your PIN. All security options will be reset.",
+                            style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        )
+                        
+                        NovaTextField(
+                            value = recoveryInput,
+                            onValueChange = { recoveryInput = it },
+                            placeholder = "12 Words (space separated)",
+                            modifier = Modifier.fillMaxWidth(),
+                            neonColor = NeonPurple
+                        )
+                        
+                        if (recoveryError.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
+                                    .padding(8.dp)
+                            ) {
+                                Text(
+                                    text = recoveryError,
+                                    style = NovaTypography.tagMono.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                )
+                            }
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            NovaSecondaryButton(
+                                text = "Cancel",
+                                neonColor = NeonPurple,
+                                onClick = { showRecoveryDialog = false },
+                                modifier = Modifier.weight(1f)
+                            )
+                            
+                            NovaPrimaryButton(
+                                text = "Reset PIN",
+                                neonColor = NeonPurple,
+                                onClick = {
+                                    val cleanInput = recoveryInput.trim().lowercase().replace("\\s+".toRegex(), " ")
+                                    val cleanSaved = savedRecovery.trim().lowercase().replace("\\s+".toRegex(), " ")
+                                    if (cleanInput == cleanSaved) {
+                                        NovaHaptics.success(view)
+                                        prefs.edit().putString("vault_pin", null).putBoolean("vault_setup_done", false).apply()
+                                        showRecoveryDialog = false
+                                        activity?.recreate()
+                                    } else {
+                                        NovaHaptics.warning(view)
+                                        recoveryError = "Incorrect recovery phrase. Try again."
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val cleanInput = recoveryInput.trim().lowercase().replace("\\s+".toRegex(), " ")
-                        val cleanSaved = savedRecovery.trim().lowercase().replace("\\s+".toRegex(), " ")
-                        if (cleanInput == cleanSaved) {
-                            prefs.edit().putString("vault_pin", null).putBoolean("vault_setup_done", false).apply()
-                            showRecoveryDialog = false
-                            // Refresh page to redo setup
-                            activity?.recreate()
-                        } else {
-                            recoveryError = "Incorrect recovery phrase. Try again."
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo)
-                ) { Text("Unlock & Reset") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRecoveryDialog = false }) { Text("Cancel") }
             }
-        )
+        }
     }
 }
 
@@ -750,6 +937,7 @@ fun VaultDashboardScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
     
     val database = remember { DatabaseProvider.getDatabase(context) }
@@ -820,23 +1008,29 @@ fun VaultDashboardScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = {
-                    if (isSearchActive) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search files & tags…") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    } else {
-                        Text("🔐 Secure Vault", fontWeight = FontWeight.Bold)
-                    }
-                },
-                navigationIcon = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .height(64.dp)
+                    .background(NovaGlassWhite)
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.verticalGradient(listOf(NovaGlassBorderW, Color.Transparent)),
+                        shape = androidx.compose.ui.graphics.RectangleShape
+                    )
+                    .padding(horizontal = NovaTokens.Spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     IconButton(onClick = {
+                        NovaHaptics.click(view)
                         if (isSearchActive) {
                             isSearchActive = false
                             searchQuery = ""
@@ -844,27 +1038,65 @@ fun VaultDashboardScreen(
                             onBack()
                         }
                     }) {
-                        Icon(Icons.Default.ArrowBack, null)
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
-                },
-                actions = {
-                    if (!isSearchActive) {
-                        IconButton(onClick = { isSearchActive = true }) {
-                            Icon(Icons.Default.Search, null)
-                        }
-                        IconButton(onClick = { showSettingsMenu = true }) {
-                            Icon(Icons.Default.Settings, null)
-                        }
-                        IconButton(onClick = onLock) {
-                            Icon(Icons.Default.Lock, null, tint = MidnightIndigo)
-                        }
+                    
+                    Spacer(modifier = Modifier.width(NovaTokens.Spacing.xs))
+                    
+                    if (isSearchActive) {
+                        NovaTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = "Search files & tags…",
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     } else {
-                        IconButton(onClick = { isSearchActive = false; searchQuery = "" }) {
-                            Icon(Icons.Default.Close, null)
-                        }
+                        Text(
+                            text = "🔐 SECURE VAULT",
+                            style = NovaTypography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = SpaceGrotesk
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
-            )
+                
+                if (!isSearchActive) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = {
+                            NovaHaptics.click(view)
+                            isSearchActive = true
+                        }) {
+                            Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(onClick = {
+                            NovaHaptics.click(view)
+                            showSettingsMenu = true
+                        }) {
+                            Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(onClick = {
+                            NovaHaptics.click(view)
+                            onLock()
+                        }) {
+                            Icon(Icons.Default.Lock, null, tint = NeonPurple)
+                        }
+                    }
+                } else {
+                    IconButton(onClick = {
+                        NovaHaptics.click(view)
+                        isSearchActive = false
+                        searchQuery = ""
+                    }) {
+                        Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
         }
     ) { padding ->
         // Track touch interactions to reset autolock timer
@@ -885,7 +1117,10 @@ fun VaultDashboardScreen(
             if (isSearchActive) {
                 if (filteredFiles.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No matching files found", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                        Text(
+                            text = "No matching files found",
+                            style = NovaTypography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        )
                     }
                 } else {
                     LazyColumn(
@@ -906,10 +1141,9 @@ fun VaultDashboardScreen(
                 ) {
                     // Privacy Header Banner
                     item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MidnightIndigo.copy(alpha = 0.08f)),
-                            shape = RoundedCornerShape(16.dp)
+                        GlassCard(
+                            neonAccent = NeonPurpleSoft,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
@@ -918,8 +1152,14 @@ fun VaultDashboardScreen(
                                 Text("🛡️", fontSize = 32.sp)
                                 Spacer(Modifier.width(12.dp))
                                 Column {
-                                    Text("Encrypted Offline Storage", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MidnightIndigo)
-                                    Text("Your files never leave your device. Fully offline AES-256.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                    Text(
+                                        text = "Encrypted Offline Storage",
+                                        style = NovaTypography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = NeonPurple)
+                                    )
+                                    Text(
+                                        text = "Your files never leave your device. Fully offline AES-256.",
+                                        style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                    )
                                 }
                             }
                         }
@@ -927,13 +1167,14 @@ fun VaultDashboardScreen(
 
                     // Emergency Quick Access Card
                     item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showEmergencyCard = true },
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFB71C1C).copy(alpha = 0.08f)),
-                            shape = RoundedCornerShape(16.dp),
-                            border = borderStrokeForColor(Color(0xFFB71C1C).copy(alpha = 0.2f))
+                        GlassCard(
+                            neonAccent = Color(0xFFB71C1C),
+                            enableGlow = true,
+                            onClick = {
+                                NovaHaptics.click(view)
+                                showEmergencyCard = true
+                            },
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
@@ -944,8 +1185,14 @@ fun VaultDashboardScreen(
                                     Text("🆘", fontSize = 28.sp)
                                     Spacer(Modifier.width(12.dp))
                                     Column {
-                                        Text("Emergency Access Card", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFFB71C1C))
-                                        Text("Quick offline profile, blood group & contacts", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                        Text(
+                                            text = "Emergency Access Card",
+                                            style = NovaTypography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFB71C1C))
+                                        )
+                                        Text(
+                                            text = "Quick offline profile, blood group & contacts",
+                                            style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                        )
                                     }
                                 }
                                 Icon(Icons.Default.ChevronRight, null, tint = Color(0xFFB71C1C))
@@ -956,7 +1203,7 @@ fun VaultDashboardScreen(
                     // Pinned Documents Section
                     if (pinnedList.isNotEmpty()) {
                         item {
-                            Text("Pinned Files", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MidnightIndigo)
+                            NovaSectionHeader(title = "Pinned Files", neonColor = NeonPurple)
                         }
                         item {
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -970,7 +1217,7 @@ fun VaultDashboardScreen(
                     // Recent Section
                     if (recentList.isNotEmpty()) {
                         item {
-                            Text("Recent Files", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MidnightIndigo)
+                            NovaSectionHeader(title = "Recent Files", neonColor = NeonPurple)
                         }
                         items(recentList, key = { it.id }) { file ->
                             VaultFileRow(file = file, isStealth = isStealthMode, onClick = {
@@ -981,7 +1228,7 @@ fun VaultDashboardScreen(
 
                     // Categories Grid Header
                     item {
-                        Text("Categories", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MidnightIndigo)
+                        NovaSectionHeader(title = "Categories", neonColor = NeonPurple)
                     }
 
                     // Grid layout for category cards
@@ -1032,23 +1279,23 @@ fun VaultDashboardScreen(
                                 isStealthMode = it
                                 prefs.edit().putBoolean("vault_stealth_mode", isStealthMode).apply()
                             },
-                            colors = SwitchDefaults.colors(checkedThumbColor = MidnightIndigo)
+                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
                         )
                     }
 
                     // Change Auto Lock
                     TextButton(onClick = { showSettingsMenu = false; showAutoLockDialog = true }) {
-                        Text("⏱️ Change Auto-Lock duration", color = MidnightIndigo)
+                        Text("⏱️ Change Auto-Lock duration", color = MaterialTheme.colorScheme.primary)
                     }
 
                     // View Recovery
                     TextButton(onClick = { showSettingsMenu = false; showRecoveryPhraseDialog = true }) {
-                        Text("📝 View Recovery Phrase", color = MidnightIndigo)
+                        Text("📝 View Recovery Phrase", color = MaterialTheme.colorScheme.primary)
                     }
 
                     // Backup/Restore
                     TextButton(onClick = { showSettingsMenu = false; showBackupRestoreDialog = true }) {
-                        Text("💾 Encrypted Backup & Restore", color = MidnightIndigo)
+                        Text("💾 Encrypted Backup & Restore", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             },
@@ -1082,7 +1329,7 @@ fun VaultDashboardScreen(
                 }
             },
             confirmButton = {
-                Button(onClick = { showRecoveryPhraseDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo)) { Text("Done") }
+                Button(onClick = { showRecoveryPhraseDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) { Text("Done") }
             }
         )
     }
@@ -1120,7 +1367,7 @@ fun VaultDashboardScreen(
                         prefs.edit().putLong("vault_autolock_ms", currentSelection).apply()
                         showAutoLockDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) { Text("Save") }
             },
             dismissButton = {
@@ -1168,13 +1415,15 @@ private fun tryBiometric(context: Context, onSuccess: () -> Unit, onError: (Stri
 
 @Composable
 fun VaultCategoryGridCard(category: VaultCategory, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier
-            .height(100.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = category.color.copy(alpha = 0.08f)),
-        border = borderStrokeForColor(category.color.copy(alpha = 0.2f))
+    val view = LocalView.current
+    GlassCard(
+        neonAccent = category.color,
+        enableGlow = true,
+        onClick = {
+            NovaHaptics.click(view)
+            onClick()
+        },
+        modifier = modifier.height(100.dp)
     ) {
         Column(
             modifier = Modifier
@@ -1182,10 +1431,33 @@ fun VaultCategoryGridCard(category: VaultCategory, onClick: () -> Unit, modifier
                 .padding(12.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(category.emoji, fontSize = 24.sp)
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(category.color.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(category.emoji, fontSize = 20.sp)
+            }
             Column {
-                Text(category.title, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = category.color)
-                Text(category.description, fontSize = 9.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = category.title,
+                    style = NovaTypography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = category.color
+                    )
+                )
+                Text(
+                    text = category.description,
+                    style = NovaTypography.bodySmall.copy(
+                        fontSize = 9.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
@@ -1193,16 +1465,17 @@ fun VaultCategoryGridCard(category: VaultCategory, onClick: () -> Unit, modifier
 
 @Composable
 fun VaultPinnedCard(file: VaultFileEntity, isStealth: Boolean, onRefresh: () -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val view = LocalView.current
     var showViewer by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = Modifier
-            .size(width = 120.dp, height = 110.dp)
-            .clickable { showViewer = true },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+    GlassCard(
+        neonAccent = NeonPurple,
+        enableGlow = false,
+        onClick = {
+            NovaHaptics.click(view)
+            showViewer = true
+        },
+        modifier = Modifier.size(width = 120.dp, height = 110.dp)
     ) {
         Column(
             modifier = Modifier
@@ -1210,14 +1483,29 @@ fun VaultPinnedCard(file: VaultFileEntity, isStealth: Boolean, onRefresh: () -> 
                 .padding(12.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(fileEmojiForMime(file.mimeType), fontSize = 20.sp)
-                Icon(Icons.Default.PushPin, null, tint = MidnightIndigo, modifier = Modifier.size(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(NeonPurple.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(fileEmojiForMime(file.mimeType), fontSize = 16.sp)
+                }
+                Icon(Icons.Default.PushPin, null, tint = NeonPurple, modifier = Modifier.size(14.dp))
             }
             Text(
                 text = if (isStealth) "••••••••••" else file.name,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 11.sp,
+                style = NovaTypography.bodySmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1239,6 +1527,7 @@ fun VaultFileRow(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showViewer by remember { mutableStateOf(false) }
+    val view = LocalView.current
 
     val context = LocalContext.current
     val database = remember { DatabaseProvider.getDatabase(context) }
@@ -1250,10 +1539,17 @@ fun VaultFileRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
-                onClick = { showViewer = true },
-                onLongClick = { showMenu = true }
+                onClick = {
+                    NovaHaptics.click(view)
+                    showViewer = true
+                },
+                onLongClick = {
+                    NovaHaptics.longPress(view)
+                    showMenu = true
+                }
             )
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            .background(NovaGlassWhite)
+            .border(1.dp, NovaGlassBorderW, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1261,7 +1557,7 @@ fun VaultFileRow(
             modifier = Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(MidnightIndigo.copy(alpha = 0.1f)),
+                .background(NeonPurple.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
             Text(fileEmojiForMime(file.mimeType), fontSize = 20.sp)
@@ -1272,20 +1568,21 @@ fun VaultFileRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = if (isStealth) "•••••••••••••" else file.name,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
+                style = NovaTypography.headlineSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 13.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "${(file.size / 1024.0).toInt()} KB · ${file.tags.ifEmpty { "no tags" }}",
-                fontSize = 10.sp,
-                color = Color.Gray
+                style = NovaTypography.tagMono.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 10.sp)
             )
         }
 
-        IconButton(onClick = { showMenu = true }) {
-            Icon(Icons.Default.MoreVert, null, tint = Color.Gray)
+        IconButton(onClick = {
+            NovaHaptics.click(view)
+            showMenu = true
+        }) {
+            Icon(Icons.Default.MoreVert, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
         }
     }
 
@@ -1304,9 +1601,10 @@ fun VaultFileRow(
                             dao.upsert(file.copy(isPinned = !file.isPinned))
                             onMenuOption()
                         }
+                        NovaHaptics.confirm(view)
                         showMenu = false
                     }) {
-                        Text(if (file.isPinned) "📌 Unpin from top" else "📌 Pin to top", color = MidnightIndigo)
+                        Text(if (file.isPinned) "📌 Unpin from top" else "📌 Pin to top", color = NeonPurple)
                     }
 
                     TextButton(onClick = {
@@ -1314,9 +1612,10 @@ fun VaultFileRow(
                             dao.upsert(file.copy(isFavorite = !file.isFavorite))
                             onMenuOption()
                         }
+                        NovaHaptics.confirm(view)
                         showMenu = false
                     }) {
-                        Text(if (file.isFavorite) "⭐ Remove from favorites" else "⭐ Add to favorites", color = MidnightIndigo)
+                        Text(if (file.isFavorite) "⭐ Remove from favorites" else "⭐ Add to favorites", color = NeonPurple)
                     }
 
                     TextButton(onClick = {
@@ -1342,8 +1641,9 @@ fun VaultFileRow(
                                 e.printStackTrace()
                             }
                         }
+                        NovaHaptics.success(view)
                     }) {
-                        Text("📤 Decrypt & Move to Device Downloads", color = MidnightIndigo)
+                        Text("📤 Decrypt & Move to Device Downloads", color = NeonPurple)
                     }
 
                     TextButton(onClick = {
@@ -1353,9 +1653,10 @@ fun VaultFileRow(
                             dao.deleteById(file.id)
                             onMenuOption()
                         }
+                        NovaHaptics.warning(view)
                         showMenu = false
                     }) {
-                        Text("🗑️ Delete Permanently", color = Color.Red)
+                        Text("🗑️ Delete Permanently", color = MaterialTheme.colorScheme.error)
                     }
                 }
             },
@@ -1391,6 +1692,7 @@ fun VaultCategoryScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val view = LocalView.current
     var categoryFiles by remember { mutableStateOf(emptyList<VaultFileEntity>()) }
     var showImportMenu by remember { mutableStateOf(false) }
 
@@ -1434,19 +1736,28 @@ fun VaultCategoryScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = { Text("${category.emoji} ${category.title}") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+            NovaTopBar(
+                title = "${category.emoji} ${category.title}",
+                onBack = onBack,
+                neonAccent = category.color
             )
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showImportMenu = true },
+                onClick = {
+                    NovaHaptics.click(view)
+                    showImportMenu = true
+                },
                 containerColor = category.color,
-                contentColor = Color.White
+                contentColor = Color.White,
+                shape = CircleShape,
+                modifier = Modifier
+                    .size(56.dp)
+                    .neonGlow(color = category.color)
             ) {
-                Icon(Icons.Default.Add, null)
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(24.dp))
             }
         }
     ) { padding ->
@@ -1456,23 +1767,44 @@ fun VaultCategoryScreen(
                 .padding(padding)
         ) {
             if (categoryFiles.isEmpty()) {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(category.emoji, fontSize = 64.sp)
-                    Spacer(Modifier.height(16.dp))
-                    Text("Empty folder", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Add files to this folder using the + button. Files are locally encrypted.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center
-                    )
+                    GlassCard(
+                        neonAccent = category.color,
+                        enableGlow = true,
+                        modifier = Modifier.fillMaxWidth().padding(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(category.emoji, fontSize = 64.sp)
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = "EMPTY FOLDER",
+                                style = NovaTypography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = category.color,
+                                    fontFamily = SpaceGrotesk
+                                )
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Import files to this folder using the + button. All contents are locally encrypted.",
+                                style = NovaTypography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    textAlign = TextAlign.Center
+                                )
+                            )
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -1488,190 +1820,376 @@ fun VaultCategoryScreen(
     }
 
     if (showImportMenu) {
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showImportMenu = false },
-            title = { Text("Add securely to Vault") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = {
-                        showImportMenu = false
-                        filePicker.launch("*/*")
-                    }) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.UploadFile, null, tint = MidnightIndigo)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Import Document/Media", color = MidnightIndigo)
-                        }
-                    }
-
-                    TextButton(onClick = {
-                        showImportMenu = false
-                        cameraLauncher.launch(null)
-                    }) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CameraAlt, null, tint = MidnightIndigo)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Take Private Secure Photo", color = MidnightIndigo)
-                        }
-                    }
-
-                    TextButton(onClick = {
-                        showImportMenu = false
-                        showNoteDialog = true
-                    }) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.NoteAdd, null, tint = MidnightIndigo)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Create Secure Text Note", color = MidnightIndigo)
-                        }
-                    }
-
-                    TextButton(onClick = {
-                        showImportMenu = false
-                        showOcrDialog = true
-                    }) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.QrCodeScanner, null, tint = MidnightIndigo)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Mock OCR Scan ID/Card", color = MidnightIndigo)
-                        }
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .wrapContentHeight()
+            ) {
+                GlassCard(
+                    neonAccent = category.color,
+                    enableGlow = true
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "SECURE IMPORT",
+                            style = NovaTypography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = category.color,
+                                fontFamily = SpaceGrotesk
+                            )
+                        )
+                        
+                        Text(
+                            text = "Choose an option to locally encrypt and import files into this vault category.",
+                            style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        )
+                        
+                        Spacer(Modifier.height(8.dp))
+                        
+                        ImportOptionRow(
+                            icon = Icons.Default.UploadFile,
+                            title = "Import Document/Media",
+                            description = "Encrypt existing files from device",
+                            neonColor = category.color,
+                            onClick = {
+                                showImportMenu = false
+                                filePicker.launch("*/*")
+                            }
+                        )
+                        
+                        ImportOptionRow(
+                            icon = Icons.Default.CameraAlt,
+                            title = "Take Private Photo",
+                            description = "Capture secure photo directly to vault",
+                            neonColor = category.color,
+                            onClick = {
+                                showImportMenu = false
+                                cameraLauncher.launch(null)
+                            }
+                        )
+                        
+                        ImportOptionRow(
+                            icon = Icons.Default.NoteAdd,
+                            title = "Create Secure Note",
+                            description = "Write encrypted text note",
+                            neonColor = category.color,
+                            onClick = {
+                                showImportMenu = false
+                                showNoteDialog = true
+                            }
+                        )
+                        
+                        ImportOptionRow(
+                            icon = Icons.Default.QrCodeScanner,
+                            title = "Mock OCR Scan Card",
+                            description = "Simulate local ID/Document scan",
+                            neonColor = category.color,
+                            onClick = {
+                                showImportMenu = false
+                                showOcrDialog = true
+                            }
+                        )
+                        
+                        Spacer(Modifier.height(8.dp))
+                        
+                        NovaSecondaryButton(
+                            text = "Cancel",
+                            neonColor = category.color,
+                            onClick = { showImportMenu = false },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showImportMenu = false }) { Text("Cancel") }
             }
-        )
+        }
     }
 
     // Secure note writing Dialog
     if (showNoteDialog) {
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showNoteDialog = false },
-            title = { Text("New Secure Note") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = noteTitle,
-                        onValueChange = { noteTitle = it },
-                        label = { Text("Note Title") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = noteBody,
-                        onValueChange = { noteBody = it },
-                        label = { Text("Note Content") },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .wrapContentHeight()
+            ) {
+                GlassCard(
+                    neonAccent = category.color,
+                    enableGlow = true
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (noteTitle.isNotBlank() && noteBody.isNotBlank()) {
-                            scope.launch(Dispatchers.IO) {
-                                val bytes = noteBody.toByteArray()
-                                val secureDir = VaultEncryptionHelper.getSecureStorageDir(context)
-                                val fileId = UUID.randomUUID().toString()
-                                val encName = "note_$fileId.enc"
-                                val destFile = File(secureDir, encName)
-                                VaultEncryptionHelper.encryptBytes(context, bytes, destFile)
-                                
-                                val entity = VaultFileEntity(
-                                    id = fileId,
-                                    name = "$noteTitle.txt",
-                                    category = category.id,
-                                    size = bytes.size.toLong(),
-                                    mimeType = "text/plain",
-                                    encryptedFileName = encName,
-                                    tags = "note"
-                                )
-                                dao.upsert(entity)
-                                refresh()
-                            }
-                            showNoteDialog = false
-                            noteTitle = ""
-                            noteBody = ""
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "NEW SECURE NOTE",
+                            style = NovaTypography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = category.color,
+                                fontFamily = SpaceGrotesk
+                            )
+                        )
+                        
+                        Text(
+                            text = "Write a private text note. It will be encrypted immediately and stored only on this device.",
+                            style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        )
+                        
+                        NovaTextField(
+                            value = noteTitle,
+                            onValueChange = { noteTitle = it },
+                            placeholder = "Note Title",
+                            modifier = Modifier.fillMaxWidth(),
+                            neonColor = category.color
+                        )
+                        
+                        NovaTextField(
+                            value = noteBody,
+                            onValueChange = { noteBody = it },
+                            placeholder = "Note Content (Write details…)",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp),
+                            singleLine = false,
+                            neonColor = category.color
+                        )
+                        
+                        Spacer(Modifier.height(8.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            NovaSecondaryButton(
+                                text = "Cancel",
+                                neonColor = category.color,
+                                onClick = {
+                                    NovaHaptics.click(view)
+                                    showNoteDialog = false
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            
+                            NovaPrimaryButton(
+                                text = "Save Note",
+                                neonColor = category.color,
+                                onClick = {
+                                    if (noteTitle.isNotBlank() && noteBody.isNotBlank()) {
+                                        scope.launch(Dispatchers.IO) {
+                                            val bytes = noteBody.toByteArray()
+                                            val secureDir = VaultEncryptionHelper.getSecureStorageDir(context)
+                                            val fileId = UUID.randomUUID().toString()
+                                            val encName = "note_$fileId.enc"
+                                            val destFile = File(secureDir, encName)
+                                            VaultEncryptionHelper.encryptBytes(context, bytes, destFile)
+                                            
+                                            val entity = VaultFileEntity(
+                                                id = fileId,
+                                                name = "$noteTitle.txt",
+                                                category = category.id,
+                                                size = bytes.size.toLong(),
+                                                mimeType = "text/plain",
+                                                encryptedFileName = encName,
+                                                tags = "note"
+                                            )
+                                            dao.upsert(entity)
+                                            refresh()
+                                        }
+                                        NovaHaptics.success(view)
+                                        showNoteDialog = false
+                                        noteTitle = ""
+                                        noteBody = ""
+                                    } else {
+                                        NovaHaptics.warning(view)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo)
-                ) { Text("Save Note") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showNoteDialog = false }) { Text("Cancel") }
+                    }
+                }
             }
-        )
+        }
     }
 
     // Mock OCR ID Scanner Dialog
     if (showOcrDialog) {
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showOcrDialog = false },
-            title = { Text("Mock OCR ID Card Scan") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Type the details from the card to simulate offline OCR scanning:", fontSize = 11.sp, color = Color.Gray)
-                    OutlinedTextField(
-                        value = idNameInput,
-                        onValueChange = { idNameInput = it },
-                        label = { Text("Full Name on Card") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = idNumberInput,
-                        onValueChange = { idNumberInput = it },
-                        label = { Text("ID Number (e.g. Aadhaar / PAN)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (idNameInput.isNotBlank() && idNumberInput.isNotBlank()) {
-                            scope.launch(Dispatchers.IO) {
-                                val mockOcrText = """
-                                    --- Anegan Offline OCR Scan ---
-                                    Document Category: ${category.title}
-                                    Card Holder Name: $idNameInput
-                                    ID Number: $idNumberInput
-                                    Scan Timestamp: ${SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())}
-                                    Security Status: Verified Encrypted Offline
-                                """.trimIndent()
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .wrapContentHeight()
+            ) {
+                GlassCard(
+                    neonAccent = category.color,
+                    enableGlow = true
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "OFFLINE OCR SCANNER",
+                            style = NovaTypography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = category.color,
+                                fontFamily = SpaceGrotesk
+                            )
+                        )
+                        
+                        Text(
+                            text = "Type card details to simulate offline OCR extraction. Extracted texts are saved as an encrypted text note inside your vault.",
+                            style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        )
+                        
+                        NovaTextField(
+                            value = idNameInput,
+                            onValueChange = { idNameInput = it },
+                            placeholder = "Full Name on Card",
+                            modifier = Modifier.fillMaxWidth(),
+                            neonColor = category.color
+                        )
+                        
+                        NovaTextField(
+                            value = idNumberInput,
+                            onValueChange = { idNumberInput = it },
+                            placeholder = "ID Number (e.g. Aadhaar / PAN)",
+                            modifier = Modifier.fillMaxWidth(),
+                            neonColor = category.color
+                        )
+                        
+                        Spacer(Modifier.height(8.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            NovaSecondaryButton(
+                                text = "Cancel",
+                                neonColor = category.color,
+                                onClick = {
+                                    NovaHaptics.click(view)
+                                    showOcrDialog = false
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            
+                            NovaPrimaryButton(
+                                text = "Scan ID",
+                                neonColor = category.color,
+                                onClick = {
+                                    if (idNameInput.isNotBlank() && idNumberInput.isNotBlank()) {
+                                        scope.launch(Dispatchers.IO) {
+                                            val mockOcrText = """
+                                                --- Anegan Offline OCR Scan ---
+                                                Document Category: ${category.title}
+                                                Card Holder Name: $idNameInput
+                                                ID Number: $idNumberInput
+                                                Scan Timestamp: ${SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())}
+                                                Security Status: Verified Encrypted Offline
+                                            """.trimIndent()
 
-                                val bytes = mockOcrText.toByteArray()
-                                val secureDir = VaultEncryptionHelper.getSecureStorageDir(context)
-                                val fileId = UUID.randomUUID().toString()
-                                val encName = "ocr_$fileId.enc"
-                                val destFile = File(secureDir, encName)
-                                VaultEncryptionHelper.encryptBytes(context, bytes, destFile)
-                                
-                                val entity = VaultFileEntity(
-                                    id = fileId,
-                                    name = "OCR_Scan_$idNumberInput.txt",
-                                    category = category.id,
-                                    size = bytes.size.toLong(),
-                                    mimeType = "text/plain",
-                                    encryptedFileName = encName,
-                                    tags = "ocr,id"
-                                )
-                                dao.upsert(entity)
-                                refresh()
-                            }
-                            showOcrDialog = false
-                            idNameInput = ""
-                            idNumberInput = ""
+                                            val bytes = mockOcrText.toByteArray()
+                                            val secureDir = VaultEncryptionHelper.getSecureStorageDir(context)
+                                            val fileId = UUID.randomUUID().toString()
+                                            val encName = "ocr_$fileId.enc"
+                                            val destFile = File(secureDir, encName)
+                                            VaultEncryptionHelper.encryptBytes(context, bytes, destFile)
+                                            
+                                            val entity = VaultFileEntity(
+                                                id = fileId,
+                                                name = "OCR_Scan_$idNumberInput.txt",
+                                                category = category.id,
+                                                size = bytes.size.toLong(),
+                                                mimeType = "text/plain",
+                                                encryptedFileName = encName,
+                                                tags = "ocr,id"
+                                            )
+                                            dao.upsert(entity)
+                                            refresh()
+                                        }
+                                        NovaHaptics.success(view)
+                                        showOcrDialog = false
+                                        idNameInput = ""
+                                        idNumberInput = ""
+                                    } else {
+                                        NovaHaptics.warning(view)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo)
-                ) { Text("Scan ID") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showOcrDialog = false }) { Text("Cancel") }
+                    }
+                }
             }
-        )
+        }
+    }
+}
+
+@Composable
+fun ImportOptionRow(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    neonColor: Color,
+    onClick: () -> Unit
+) {
+    val view = LocalView.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable {
+                NovaHaptics.click(view)
+                onClick()
+            }
+            .background(NovaGlassWhite)
+            .border(1.dp, NovaGlassBorderW, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(neonColor.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = neonColor, modifier = Modifier.size(20.dp))
+        }
+        
+        Spacer(Modifier.width(12.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = NovaTypography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Text(
+                text = description,
+                style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 10.sp)
+            )
+        }
+        
+        Icon(Icons.Default.ChevronRight, null, tint = neonColor, modifier = Modifier.size(16.dp))
     }
 }
 
@@ -1769,6 +2287,7 @@ fun VaultFileViewerDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val view = LocalView.current
     var isDecrypting by remember { mutableStateOf(true) }
     var noteContent by remember { mutableStateOf<String?>(null) }
     var imageBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -1779,6 +2298,8 @@ fun VaultFileViewerDialog(
     LaunchedEffect(file) {
         withContext(Dispatchers.IO) {
             try {
+                // Secure simulated delay to show decryption state
+                delay(800)
                 val storageDir = VaultEncryptionHelper.getSecureStorageDir(context)
                 val encFile = File(storageDir, file.encryptedFileName)
                 val bytes = VaultEncryptionHelper.decryptToBytes(context, encFile)
@@ -1796,87 +2317,243 @@ fun VaultFileViewerDialog(
         }
     }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text(file.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        text = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(240.dp),
-                contentAlignment = Alignment.Center
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .wrapContentHeight()
+        ) {
+            GlassCard(
+                neonAccent = NeonPurple,
+                enableGlow = true
             ) {
-                when {
-                    isDecrypting -> CircularProgressIndicator(color = MidnightIndigo)
-                    errorText.isNotEmpty() -> Text(errorText, color = MaterialTheme.colorScheme.error)
-                    noteContent != null -> {
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            item {
-                                Text(noteContent!!, style = MaterialTheme.typography.bodyMedium)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "SECURE DECRYPTER",
+                            style = NovaTypography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = NeonPurple,
+                                fontFamily = SpaceGrotesk
+                            )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(NeonPurple.copy(alpha = 0.12f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "AES-256",
+                                style = NovaTypography.tagMono.copy(color = NeonPurple, fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = if (isDecrypting) "Decrypting secure stream in-memory..." else file.name,
+                        style = NovaTypography.bodySmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontFamily = JetBrainsMono
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(NovaGlassWhite)
+                            .border(1.dp, NovaGlassBorderW, RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when {
+                            isDecrypting -> {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        NovaPulseRing(
+                                            neonColor = NeonPurple,
+                                            modifier = Modifier.size(80.dp)
+                                        )
+                                        Text("🔑", fontSize = 28.sp)
+                                    }
+                                    Spacer(Modifier.height(16.dp))
+                                    Text(
+                                        text = "STREAM DECRYPT ACTIVE",
+                                        style = NovaTypography.tagMono.copy(color = NeonPurple, fontWeight = FontWeight.Bold)
+                                    )
+                                }
+                            }
+                            errorText.isNotEmpty() -> {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text("⚠️", fontSize = 48.sp)
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = errorText,
+                                        style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                            noteContent != null -> {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(12.dp)
+                                ) {
+                                    item {
+                                        Text(
+                                            text = noteContent!!,
+                                            style = NovaTypography.codeMono.copy(
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 12.sp
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                            imageBitmap != null -> {
+                                androidx.compose.foundation.Image(
+                                    bitmap = imageBitmap!!.asImageBitmap(),
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize().padding(4.dp)
+                                )
+                            }
+                            else -> {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                    Text(fileEmojiForMime(file.mimeType), fontSize = 48.sp)
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = "Decrypted in memory safely.",
+                                        style = NovaTypography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Text(
+                                        text = "Use option menu to export to decrypted local file.",
+                                        style = NovaTypography.tagMono.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 9.sp)
+                                    )
+                                }
                             }
                         }
                     }
-                    imageBitmap != null -> {
-                        androidx.compose.foundation.Image(
-                            bitmap = imageBitmap!!.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize()
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        NovaSecondaryButton(
+                            text = "Close",
+                            neonColor = NeonPurple,
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f)
                         )
-                    }
-                    else -> {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Text("📄", fontSize = 48.sp)
-                            Spacer(Modifier.height(8.dp))
-                            Text("Decrypted in memory.", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            Text("Decrypt & Export to device to open.", fontSize = 11.sp, color = Color.Gray)
+                        
+                        if (!isDecrypting && errorText.isEmpty()) {
+                            NovaPrimaryButton(
+                                text = "Edit Tags",
+                                neonColor = NeonPurple,
+                                onClick = {
+                                    NovaHaptics.click(view)
+                                    isEditTagsDialog = true
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = { isEditTagsDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo)
-            ) { Text("Edit Tags") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
         }
-    )
+    }
 
     if (isEditTagsDialog) {
         var tagsInput by remember { mutableStateOf(file.tags) }
         val database = remember { DatabaseProvider.getDatabase(context) }
         val dao = remember { database.vaultFileDao() }
 
-        AlertDialog(
+        Dialog(
             onDismissRequest = { isEditTagsDialog = false },
-            title = { Text("Edit File Tags") },
-            text = {
-                OutlinedTextField(
-                    value = tagsInput,
-                    onValueChange = { tagsInput = it },
-                    label = { Text("Tags (comma separated)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        scope.launch(Dispatchers.IO) {
-                            dao.upsert(file.copy(tags = tagsInput))
-                            onRefresh()
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .wrapContentHeight()
+            ) {
+                GlassCard(
+                    neonAccent = NeonPurple,
+                    enableGlow = true
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "EDIT FILE TAGS",
+                            style = NovaTypography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = NeonPurple,
+                                fontFamily = SpaceGrotesk
+                            )
+                        )
+                        
+                        NovaTextField(
+                            value = tagsInput,
+                            onValueChange = { tagsInput = it },
+                            placeholder = "Tags (comma separated)",
+                            modifier = Modifier.fillMaxWidth(),
+                            neonColor = NeonPurple
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            NovaSecondaryButton(
+                                text = "Cancel",
+                                neonColor = NeonPurple,
+                                onClick = { isEditTagsDialog = false },
+                                modifier = Modifier.weight(1f)
+                            )
+                            
+                            NovaPrimaryButton(
+                                text = "Save Tags",
+                                neonColor = NeonPurple,
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        dao.upsert(file.copy(tags = tagsInput))
+                                        onRefresh()
+                                    }
+                                    NovaHaptics.success(view)
+                                    isEditTagsDialog = false
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                        isEditTagsDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo)
-                ) { Text("Save Tags") }
-            },
-            dismissButton = {
-                TextButton(onClick = { isEditTagsDialog = false }) { Text("Cancel") }
+                    }
+                }
             }
-        )
+        }
     }
 }
 
@@ -1890,6 +2567,7 @@ fun VaultEmergencyCardScreen(dao: VaultFileDao, onBack: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("anegan_emergency_card", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
+    val view = LocalView.current
 
     var name by remember { mutableStateOf(prefs.getString("name", "") ?: "") }
     var bloodGroup by remember { mutableStateOf(prefs.getString("blood", "") ?: "") }
@@ -1900,6 +2578,8 @@ fun VaultEmergencyCardScreen(dao: VaultFileDao, onBack: () -> Unit) {
 
     var isEditing by remember { mutableStateOf(name.isBlank()) }
     var emergencyFiles by remember { mutableStateOf(emptyList<VaultFileEntity>()) }
+
+    val redAccent = Color(0xFFB71C1C)
 
     fun refreshEmergencyDocs() {
         scope.launch(Dispatchers.IO) {
@@ -1912,10 +2592,12 @@ fun VaultEmergencyCardScreen(dao: VaultFileDao, onBack: () -> Unit) {
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = { Text("🆘 Emergency Access Card") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+            NovaTopBar(
+                title = "🆘 Emergency Profile",
+                onBack = onBack,
+                neonAccent = redAccent
             )
         }
     ) { padding ->
@@ -1927,19 +2609,25 @@ fun VaultEmergencyCardScreen(dao: VaultFileDao, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFB71C1C).copy(alpha = 0.08f)),
-                    shape = RoundedCornerShape(16.dp),
-                    border = borderStrokeForColor(Color(0xFFB71C1C).copy(alpha = 0.2f))
+                GlassCard(
+                    neonAccent = redAccent,
+                    enableGlow = true,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Emergency Profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFB71C1C))
+                            Text(
+                                text = "SOS INFOCARD",
+                                style = NovaTypography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = redAccent,
+                                    fontFamily = SpaceGrotesk
+                                )
+                            )
                             IconButton(onClick = {
                                 if (isEditing) {
                                     prefs.edit()
@@ -1950,47 +2638,72 @@ fun VaultEmergencyCardScreen(dao: VaultFileDao, onBack: () -> Unit) {
                                         .putString("contact_name", contactName)
                                         .putString("contact_phone", contactPhone)
                                         .apply()
+                                    NovaHaptics.success(view)
                                     isEditing = false
                                 } else {
+                                    NovaHaptics.click(view)
                                     isEditing = true
                                 }
                             }) {
-                                Icon(if (isEditing) Icons.Default.Check else Icons.Default.Edit, null, tint = Color(0xFFB71C1C))
+                                Icon(
+                                    imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
+                                    contentDescription = "Edit Profile",
+                                    tint = redAccent
+                                )
                             }
                         }
 
                         if (isEditing) {
-                            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Full Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                            OutlinedTextField(value = bloodGroup, onValueChange = { bloodGroup = it }, label = { Text("Blood Group") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                            OutlinedTextField(value = allergies, onValueChange = { allergies = it }, label = { Text("Allergies") }, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(value = medicalConditions, onValueChange = { medicalConditions = it }, label = { Text("Medical Conditions") }, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(value = contactName, onValueChange = { contactName = it }, label = { Text("Emergency Contact Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                            OutlinedTextField(value = contactPhone, onValueChange = { contactPhone = it }, label = { Text("Emergency Contact Phone") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                NovaTextField(value = name, onValueChange = { name = it }, placeholder = "Full Name", modifier = Modifier.fillMaxWidth(), neonColor = redAccent)
+                                NovaTextField(value = bloodGroup, onValueChange = { bloodGroup = it }, placeholder = "Blood Group", modifier = Modifier.fillMaxWidth(), neonColor = redAccent)
+                                NovaTextField(value = allergies, onValueChange = { allergies = it }, placeholder = "Allergies", modifier = Modifier.fillMaxWidth(), neonColor = redAccent)
+                                NovaTextField(value = medicalConditions, onValueChange = { medicalConditions = it }, placeholder = "Medical Conditions", modifier = Modifier.fillMaxWidth(), neonColor = redAccent)
+                                NovaTextField(value = contactName, onValueChange = { contactName = it }, placeholder = "Emergency Contact Name", modifier = Modifier.fillMaxWidth(), neonColor = redAccent)
+                                NovaTextField(
+                                    value = contactPhone,
+                                    onValueChange = { contactPhone = it },
+                                    placeholder = "Emergency Contact Phone",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    neonColor = redAccent,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                                )
+                            }
                         } else {
-                            EmergencyItemRow("👤 Name", name.ifEmpty { "Not configured" })
-                            EmergencyItemRow("🩸 Blood Group", bloodGroup.ifEmpty { "Not configured" })
-                            EmergencyItemRow("⚠️ Allergies", allergies.ifEmpty { "None listed" })
-                            EmergencyItemRow("🏥 Medical Conditions", medicalConditions.ifEmpty { "None listed" })
-                            EmergencyItemRow("📞 Contact", if (contactName.isNotEmpty()) "$contactName · $contactPhone" else "Not configured")
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                EmergencyItemRow("👤 NAME", name.ifEmpty { "Not configured" })
+                                EmergencyItemRow("🩸 BLOOD GROUP", bloodGroup.ifEmpty { "Not configured" })
+                                EmergencyItemRow("⚠️ ALLERGIES", allergies.ifEmpty { "None listed" })
+                                EmergencyItemRow("🏥 MEDICAL CONDITIONS", medicalConditions.ifEmpty { "None listed" })
+                                EmergencyItemRow("📞 EMERGENCY CONTACT", if (contactName.isNotEmpty()) "$contactName · $contactPhone" else "Not configured")
+                            }
                         }
                     }
                 }
             }
 
             item {
-                Text("Emergency Documents", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MidnightIndigo)
-                Text("Quick access to critical medical insurance or cards stored in vault:", fontSize = 11.sp, color = Color.Gray)
+                NovaSectionHeader(title = "Emergency Documents", neonColor = redAccent)
             }
 
             if (emergencyFiles.isEmpty()) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
+                    GlassCard(
+                        neonAccent = redAccent.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
                     ) {
-                        Text("Add files under 'Medical' category to display them here", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Add files under 'Medical' category to display them here",
+                                style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             } else {
@@ -2004,9 +2717,30 @@ fun VaultEmergencyCardScreen(dao: VaultFileDao, onBack: () -> Unit) {
 
 @Composable
 fun EmergencyItemRow(label: String, value: String) {
-    Column {
-        Text(label, fontSize = 10.sp, color = Color.Gray)
-        Text(value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(NovaGlassWhite)
+            .border(1.dp, NovaGlassBorderW, RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = label,
+            style = NovaTypography.tagMono.copy(
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = value,
+            style = NovaTypography.codeMono.copy(
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        )
     }
 }
 
@@ -2018,6 +2752,7 @@ fun EmergencyItemRow(label: String, value: String) {
 fun VaultBackupRestoreDialog(dao: VaultFileDao, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val view = LocalView.current
     var backupStatus by remember { mutableStateOf("") }
     var restoreStatus by remember { mutableStateOf("") }
 
@@ -2062,124 +2797,234 @@ fun VaultBackupRestoreDialog(dao: VaultFileDao, onDismiss: () -> Unit) {
                         }
                     }
                     tempZip.delete()
-                    restoreStatus = "Restore completed successfully!"
+                    restoreStatus = "SUCCESS: Vault restored!"
+                    NovaHaptics.success(view)
                 } catch (e: Exception) {
-                    restoreStatus = "Restore failed: ${e.message}"
+                    restoreStatus = "ERROR: Restore failed: ${e.message}"
+                    NovaHaptics.warning(view)
                 }
             }
         }
     }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Vault Backup & Restore") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Anegan Vault backups are fully local, encrypted, manual and secure. Backups are exported as an encrypted zip archive.", fontSize = 11.sp, color = Color.Gray)
-                
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text("Create Backup", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        Text("Save all secure files & metadata to device Downloads.", fontSize = 10.sp, color = Color.Gray)
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        backupStatus = "Creating backup…"
-                                        val secureDir = VaultEncryptionHelper.getSecureStorageDir(context)
-                                        val metadata = dao.getAll()
-                                        
-                                        val jsonArray = JSONArray()
-                                        metadata.forEach { f ->
-                                            val obj = JSONObject()
-                                            obj.put("id", f.id)
-                                            obj.put("name", f.name)
-                                            obj.put("category", f.category)
-                                            obj.put("size", f.size)
-                                            obj.put("mimeType", f.mimeType)
-                                            obj.put("isPinned", f.isPinned)
-                                            obj.put("isFavorite", f.isFavorite)
-                                            obj.put("tags", f.tags)
-                                            obj.put("encryptedFileName", f.encryptedFileName)
-                                            jsonArray.put(obj)
-                                        }
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .wrapContentHeight()
+        ) {
+            GlassCard(
+                neonAccent = NeonPurple,
+                enableGlow = true
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "BACKUP & RESTORE",
+                        style = NovaTypography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = NeonPurple,
+                            fontFamily = SpaceGrotesk
+                        )
+                    )
+                    
+                    Text(
+                        text = "Vault backups are offline, private, and manual. They are generated as an encrypted ZIP archive stored in your Downloads folder.",
+                        style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    )
 
-                                        val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
-                                            android.os.Environment.DIRECTORY_DOWNLOADS
-                                        )
-                                        val backupFile = File(downloadsDir, "Anegan_Vault_Backup_${System.currentTimeMillis()}.zip")
-                                        
-                                        ZipOutputStream(backupFile.outputStream()).use { zos ->
-                                            // Write metadata entry
-                                            zos.putNextEntry(ZipEntry("vault_metadata.json"))
-                                            zos.write(jsonArray.toString().toByteArray())
-                                            zos.closeEntry()
+                    Spacer(Modifier.height(4.dp))
+
+                    // Backup Card
+                    GlassCard(
+                        neonAccent = NeonPurpleSoft,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "💾 CREATE OFFLINE BACKUP",
+                                style = NovaTypography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "Compiles all vault entities, metadata and files into a password-protected zip file.",
+                                style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 10.sp)
+                            )
+                            
+                            NovaPrimaryButton(
+                                text = "Export Backup ZIP",
+                                neonColor = NeonPurple,
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        try {
+                                            backupStatus = "Compiling vault files…"
+                                            val secureDir = VaultEncryptionHelper.getSecureStorageDir(context)
+                                            val metadata = dao.getAll()
                                             
-                                            // Write secure files
-                                            secureDir.listFiles()?.forEach { file ->
-                                                if (file.isFile) {
-                                                    zos.putNextEntry(ZipEntry(file.name))
-                                                    file.inputStream().use { input -> input.copyTo(zos) }
-                                                    zos.closeEntry()
+                                            val jsonArray = JSONArray()
+                                            metadata.forEach { f ->
+                                                val obj = JSONObject()
+                                                obj.put("id", f.id)
+                                                obj.put("name", f.name)
+                                                obj.put("category", f.category)
+                                                obj.put("size", f.size)
+                                                obj.put("mimeType", f.mimeType)
+                                                obj.put("isPinned", f.isPinned)
+                                                obj.put("isFavorite", f.isFavorite)
+                                                obj.put("tags", f.tags)
+                                                obj.put("encryptedFileName", f.encryptedFileName)
+                                                jsonArray.put(obj)
+                                            }
+
+                                            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                                                android.os.Environment.DIRECTORY_DOWNLOADS
+                                            )
+                                            val backupFile = File(downloadsDir, "Anegan_Vault_Backup_${System.currentTimeMillis()}.zip")
+                                            
+                                            ZipOutputStream(backupFile.outputStream()).use { zos ->
+                                                zos.putNextEntry(ZipEntry("vault_metadata.json"))
+                                                zos.write(jsonArray.toString().toByteArray())
+                                                zos.closeEntry()
+                                                
+                                                secureDir.listFiles()?.forEach { file ->
+                                                    if (file.isFile) {
+                                                        zos.putNextEntry(ZipEntry(file.name))
+                                                        file.inputStream().use { input -> input.copyTo(zos) }
+                                                        zos.closeEntry()
+                                                    }
                                                 }
                                             }
+                                            backupStatus = "SUCCESS: Saved to Downloads"
+                                            NovaHaptics.success(view)
+                                        } catch (e: Exception) {
+                                            backupStatus = "ERROR: Backup failed: ${e.message}"
+                                            NovaHaptics.warning(view)
                                         }
-                                        backupStatus = "Backup saved to Downloads: ${backupFile.name}"
-                                    } catch (e: Exception) {
-                                        backupStatus = "Backup failed: ${e.message}"
                                     }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Export Backup Zip")
-                        }
-                        if (backupStatus.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(backupStatus, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MidnightIndigo)
-                        }
-                    }
-                }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
 
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text("Restore Vault", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        Text("Select an Anegan Vault backup zip file to restore.", fontSize = 10.sp, color = Color.Gray)
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                restoreLauncher.launch("application/zip")
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MidnightIndigo),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Select Backup File")
-                        }
-                        if (restoreStatus.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(restoreStatus, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MidnightIndigo)
+                            if (backupStatus.isNotEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(
+                                            if (backupStatus.startsWith("ERROR")) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                                            else NeonPurple.copy(alpha = 0.12f)
+                                        )
+                                        .padding(8.dp)
+                                ) {
+                                    Text(
+                                        text = backupStatus,
+                                        style = NovaTypography.tagMono.copy(
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (backupStatus.startsWith("ERROR")) MaterialTheme.colorScheme.error else NeonPurple
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
+
+                    // Restore Card
+                    GlassCard(
+                        neonAccent = NeonPurpleSoft,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "📤 RESTORE FROM BACKUP",
+                                style = NovaTypography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "Select an exported backup ZIP archive to restore all offline vault files.",
+                                style = NovaTypography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 10.sp)
+                            )
+                            
+                            NovaPrimaryButton(
+                                text = "Select Backup File",
+                                neonColor = NeonPurple,
+                                onClick = {
+                                    NovaHaptics.click(view)
+                                    restoreLauncher.launch("application/zip")
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            if (restoreStatus.isNotEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(
+                                            if (restoreStatus.startsWith("ERROR")) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                                            else NeonPurple.copy(alpha = 0.12f)
+                                        )
+                                        .padding(8.dp)
+                                ) {
+                                    Text(
+                                        text = restoreStatus,
+                                        style = NovaTypography.tagMono.copy(
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (restoreStatus.startsWith("ERROR")) MaterialTheme.colorScheme.error else NeonPurple
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(4.dp))
+
+                    NovaSecondaryButton(
+                        text = "Close",
+                        neonColor = NeonPurple,
+                        onClick = {
+                            NovaHaptics.click(view)
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
         }
-    )
+    }
 }
 
 @Composable
 fun PinDots(length: Int) {
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         repeat(4) { i ->
+            val active = i < length
             Box(
                 modifier = Modifier
                     .size(18.dp)
                     .clip(CircleShape)
-                    .background(if (i < length) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    .background(
+                        if (active) NeonPurple
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = if (active) NeonPurple else Color.Transparent,
+                        shape = CircleShape
+                    )
             )
         }
     }
@@ -2187,32 +3032,44 @@ fun PinDots(length: Int) {
 
 @Composable
 fun NumberPad(onDigit: (String) -> Unit, onDelete: () -> Unit) {
+    val view = LocalView.current
     val digits = listOf("1","2","3","4","5","6","7","8","9","","0","⌫")
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         digits.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 row.forEach { d ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(60.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (d.isEmpty()) Color.Transparent
-                                else MaterialTheme.colorScheme.surface
+                    if (d.isEmpty()) {
+                        Spacer(modifier = Modifier.weight(1f).height(64.dp))
+                    } else {
+                        val isSpecial = d == "⌫"
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(64.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    if (isSpecial) Color.Transparent
+                                    else NovaGlassWhite
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSpecial) Color.Transparent else NovaGlassBorderW,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    NovaHaptics.tick(view)
+                                    if (d == "⌫") onDelete() else onDigit(d)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = d,
+                                style = NovaTypography.dataMedium.copy(
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSpecial) NeonPurple else MaterialTheme.colorScheme.onSurface
+                                )
                             )
-                            .border(
-                                width = if (d.isEmpty()) 0.dp else 1.dp,
-                                color = if (d.isEmpty()) Color.Transparent else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .clickable(enabled = d.isNotEmpty()) {
-                                if (d == "⌫") onDelete() else onDigit(d)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (d.isNotEmpty()) {
-                            Text(d, fontSize = 22.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }

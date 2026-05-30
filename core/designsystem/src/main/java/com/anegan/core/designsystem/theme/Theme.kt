@@ -24,71 +24,67 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Pure white base, Midnight Indigo primary, Platinum secondary
+// 🌌 NOVA LIGHT COLOR SCHEME (60-30-10 Harmony)
 private val AneganLightColorScheme = lightColorScheme(
-    primary = MidnightIndigo,
-    secondary = PlatinumSilver,
-    tertiary = LuminousGlow,
-    background = PureWhite,
-    surface = SoftCoolGray,
-    onPrimary = PureWhite,
-    onSecondary = MidnightIndigo,
-    onTertiary = MidnightIndigo,
-    onBackground = MidnightIndigo,
-    onSurface = MidnightIndigo
+    primary = NovaDeepInk,
+    secondary = NovaSlateGray,
+    tertiary = NeonBlue,
+    background = NovaGhostWhite,
+    surface = NovaPureWhite,
+    onPrimary = NovaPureWhite,
+    onSecondary = NovaDeepInk,
+    onTertiary = NovaDeepInk,
+    onBackground = NovaDeepInk,
+    onSurface = NovaDeepInk,
+    surfaceVariant = NovaCoolGray50,
+    outline = NovaBorderLight
 )
 
-// Midnight Indigo base background, slate surface, silver-blue accent
+// 🌌 NOVA DARK COLOR SCHEME (Sleek Cyberpunk/Neon Dark)
 private val AneganDarkColorScheme = darkColorScheme(
-    primary = Color(0xFFE2E8F0), // Platinum silver accent
-    secondary = LuminousGlow,
-    tertiary = MidnightIndigo,
-    background = MidnightIndigo, // Deep dark indigo background
-    surface = Color(0xFF1E293B), // Sleek lighter slate for surface cards
-    onPrimary = MidnightIndigo,
-    onSecondary = Color(0xFFFFFFFF),
-    onTertiary = Color(0xFFFFFFFF),
-    onBackground = Color(0xFFF8FAFC),
-    onSurface = Color(0xFFF8FAFC)
+    primary = NovaFrostWhite,
+    secondary = NeonBlue,
+    tertiary = NovaDeepInk,
+    background = NovaDeepSpace,
+    surface = NovaMidnightBlue,
+    onPrimary = NovaDeepInk,
+    onSecondary = Color.White,
+    onTertiary = Color.White,
+    onBackground = NovaFrostWhite,
+    onSurface = NovaFrostWhite,
+    surfaceVariant = NovaDarkSlate,
+    outline = NovaBorderDark
 )
 
-// AMOLED Pure Black Color Scheme for battery saving and premium high-contrast looks
+// 🌌 NOVA AMOLED PURE BLACK COLOR SCHEME (Battery Saving + High Contrast Cyberpunk)
 private val AneganAmoledColorScheme = darkColorScheme(
-    primary = Color(0xFFE2E8F0),
-    secondary = LuminousGlow,
-    tertiary = MidnightIndigo,
-    background = Color(0xFF000000), // AMOLED Pure Black
-    surface = Color(0xFF121212),    // Rich deep dark surface card
-    onPrimary = MidnightIndigo,
-    onSecondary = Color(0xFFFFFFFF),
-    onTertiary = Color(0xFFFFFFFF),
-    onBackground = Color(0xFFFFFFFF),
-    onSurface = Color(0xFFE2E8F0)
+    primary = NovaFrostWhite,
+    secondary = NeonBlue,
+    tertiary = NovaDeepInk,
+    background = NovaVoidBlack,
+    surface = Color(0xFF121212),
+    onPrimary = NovaDeepInk,
+    onSecondary = Color.White,
+    onTertiary = Color.White,
+    onBackground = Color.White,
+    onSurface = NovaFrostWhite,
+    surfaceVariant = Color(0xFF1A1A1A),
+    outline = NovaBorderDark
 )
 
 @Composable
 fun AneganTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     dynamicColor: Boolean = true,
     amoledDark: Boolean = false,
     fontName: String = "Default",
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
+    // Dynamic color is supported on Android 12+
     val colorScheme = when {
         dynamicColor && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S -> {
-            val base = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-            if (darkTheme && amoledDark) {
-                base.copy(
-                    background = Color(0xFF000000),
-                    surface = Color(0xFF121212),
-                    surfaceVariant = Color(0xFF1E1E1E),
-                    onBackground = Color(0xFFFFFFFF),
-                    onSurface = Color(0xFFE2E8F0)
-                )
-            } else {
-                base
-            }
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> {
             if (amoledDark) AneganAmoledColorScheme else AneganDarkColorScheme
@@ -111,4 +107,3 @@ fun AneganTheme(
         content = content
     )
 }
-

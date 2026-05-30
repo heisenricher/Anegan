@@ -13,12 +13,15 @@ import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,9 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.anegan.core.designsystem.theme.MidnightIndigo
-import com.anegan.core.designsystem.theme.PureWhite
-import com.anegan.core.designsystem.theme.FiraCodeFontFamily
+import com.anegan.core.designsystem.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -96,76 +97,71 @@ fun TextCodeReaderScreen(
         onBack()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = file.name,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MidnightIndigo,
-                        maxLines = 1
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Text("←", fontSize = 24.sp, color = MidnightIndigo, fontWeight = FontWeight.Bold)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            // Search Input Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Search keyword in document…", fontSize = 13.sp) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MidnightIndigo,
-                    unfocusedBorderColor = Color.LightGray
-                ),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
-            )
-
-            Box(
-                modifier = Modifier
+    NovaBackground {
+        Scaffold(
+            topBar = {
+                NovaTopBar(
+                    title = file.name,
+                    onBack = onBack,
+                    neonAccent = NeonCyan
+                )
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
+            Column(
+                modifier = modifier
                     .fillMaxSize()
-                    .weight(1f)
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
+                    .padding(innerPadding)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = MidnightIndigo)
-                } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        item {
-                            // Compute highlighting
-                            val annotatedString = remember(fileContent, searchQuery) {
-                                buildHighlightedString(fileContent, searchQuery)
+                // Search Input Bar
+                NovaTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = "Search keyword in document…",
+                    neonColor = NeonCyan,
+                    leadingIcon = Icons.Rounded.Search,
+                    trailingIcon = if (searchQuery.isNotEmpty()) Icons.Rounded.Close else null,
+                    onTrailingClick = { searchQuery = "" },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = NovaTokens.Spacing.xl, vertical = NovaTokens.Spacing.xs),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f)
+                        .padding(horizontal = NovaTokens.Spacing.xl, vertical = NovaTokens.Spacing.sm),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(color = NeonCyan)
+                    } else {
+                        GlassCard(
+                            modifier = Modifier.fillMaxSize(),
+                            neonAccent = NeonCyan.copy(alpha = 0.2f),
+                            cornerRadius = NovaTokens.Radius.lg
+                        ) {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(NovaTokens.Spacing.md)
+                            ) {
+                                item {
+                                    // Compute highlighting
+                                    val annotatedString = remember(fileContent, searchQuery) {
+                                        buildHighlightedString(fileContent, searchQuery)
+                                    }
+                                    Text(
+                                        text = annotatedString,
+                                        style = if (isMonospaceType) NovaTypography.codeMono else NovaTypography.bodyMedium,
+                                        color = if (isSystemInDarkTheme()) NovaFrostWhite else NovaDeepInk
+                                    )
+                                }
                             }
-                            Text(
-                                text = annotatedString,
-                                fontSize = 14.sp,
-                                lineHeight = 22.sp,
-                                color = Color.DarkGray,
-                                fontFamily = if (isMonospaceType) FiraCodeFontFamily else FontFamily.SansSerif
-                            )
                         }
                     }
                 }
@@ -184,8 +180,8 @@ private fun buildHighlightedString(content: String, query: String): AnnotatedStr
         while (index >= 0) {
             builder.addStyle(
                 SpanStyle(
-                    background = Color(0xFFFFEB3B), // Premium golden highlight background
-                    color = Color(0xFF0F172A),
+                    background = NeonGold.copy(alpha = 0.8f), // Premium golden highlight background
+                    color = NovaDeepInk,
                     fontWeight = FontWeight.Bold
                 ),
                 index,

@@ -105,39 +105,73 @@ class NativeImageConverter : ImageConverter {
 
             val outputFile = File(StorageManager.getAneganOutputDirectory("Images"), "${input.nameWithoutExtension}_converted.${options.format.lowercase()}")
             
-            // 5. Compression size targeting (Binary Search)
+            // 5. Compression size targeting (Binary Search with 1% tolerance & Downscaling)
             if (options.targetSizeBytes != null && compressFormat != Bitmap.CompressFormat.PNG) {
-                var minQ = 1
-                var maxQ = 100
-                var bestQ = options.quality
+                var scaleFactor = 1.0f
+                var bestQ = 80
+                var bestSize = 0L
+                var tempBitmap = processedBitmap
                 
-                var currentSize: Long = Long.MAX_VALUE
+                var attempts = 0
+                var success = false
                 
-                for (i in 0..7) {
-                    val midQ = (minQ + maxQ) / 2
-                    val fos = FileOutputStream(outputFile)
-                    processedBitmap.compress(compressFormat, midQ, fos)
-                    fos.flush()
-                    fos.close()
+                while (attempts < 5 && !success) {
+                    var minQ = 1
+                    var maxQ = 100
+                    var localBestQ = 1
+                    var localBestSize = 0L
                     
-                    currentSize = outputFile.length()
+                    for (i in 0..7) {
+                        val midQ = (minQ + maxQ) / 2
+                        val fos = FileOutputStream(outputFile)
+                        tempBitmap.compress(compressFormat, midQ, fos)
+                        fos.flush()
+                        fos.close()
+                        
+                        val currentSize = outputFile.length()
+                        if (currentSize <= options.targetSizeBytes) {
+                            localBestQ = midQ
+                            localBestSize = currentSize
+                            minQ = midQ + 1
+                        } else {
+                            maxQ = midQ - 1
+                        }
+                    }
                     
-                    if (Math.abs(currentSize - options.targetSizeBytes) < (options.targetSizeBytes * 0.05)) {
-                        break // within 5% tolerance
-                    } else if (currentSize > options.targetSizeBytes) {
-                        maxQ = midQ - 1
+                    val targetMin = (options.targetSizeBytes * 0.99).toLong()
+                    if (localBestSize in targetMin..options.targetSizeBytes) {
+                        bestQ = localBestQ
+                        bestSize = localBestSize
+                        success = true
+                    } else if (localBestSize == 0L) {
+                        // Even at Q=1, it exceeds target size. We must downscale.
+                        scaleFactor *= 0.8f
+                        if (tempBitmap != processedBitmap && tempBitmap != bitmap) {
+                            tempBitmap.recycle()
+                        }
+                        val newW = (processedBitmap.width * scaleFactor).toInt().coerceAtLeast(1)
+                        val newH = (processedBitmap.height * scaleFactor).toInt().coerceAtLeast(1)
+                        tempBitmap = Bitmap.createScaledBitmap(processedBitmap, newW, newH, true)
+                        attempts++
                     } else {
-                        bestQ = midQ
-                        minQ = midQ + 1
+                        // localBestSize is < targetMin. That means the maximum quality we can achieve without exceeding target
+                        // is actually below targetMin. If localBestQ is 100, we can't do any better, so it's a success.
+                        // If localBestQ < 100 but next Q is too big, then we are at the best possible quality.
+                        bestQ = localBestQ
+                        bestSize = localBestSize
+                        success = true
                     }
                 }
                 
-                if (currentSize > options.targetSizeBytes * 1.05) {
-                     val fos = FileOutputStream(outputFile)
-                     processedBitmap.compress(compressFormat, bestQ, fos)
-                     fos.close()
+                // Write final compressed image
+                val fos = FileOutputStream(outputFile)
+                tempBitmap.compress(compressFormat, bestQ, fos)
+                fos.flush()
+                fos.close()
+                
+                if (tempBitmap != processedBitmap && tempBitmap != bitmap) {
+                    tempBitmap.recycle()
                 }
-
             } else {
                 val fos = FileOutputStream(outputFile)
                 processedBitmap.compress(compressFormat, options.quality, fos)
