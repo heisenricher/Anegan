@@ -29,8 +29,8 @@ android {
         applicationId = "com.anegan.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 20
-        versionName = "3.1.0"
+        versionCode = 21
+        versionName = "3.2.0"
     }
 
     signingConfigs {
