@@ -17,27 +17,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.unit.sp
 import com.anegan.core.designsystem.R
 
-// Packaged custom fonts for offline privacy and zero-cloud dependency
-val OutfitFontFamily = FontFamily(
-    Font(R.font.outfit_regular, FontWeight.Normal),
-    Font(R.font.outfit_medium, FontWeight.Medium),
-    Font(R.font.outfit_bold, FontWeight.Bold)
-)
-
-val MontserratFontFamily = FontFamily(
-    Font(R.font.montserrat_regular, FontWeight.Normal),
-    Font(R.font.montserrat_medium, FontWeight.Medium),
-    Font(R.font.montserrat_bold, FontWeight.Bold)
-)
-
-val PlayfairFontFamily = FontFamily(
-    Font(R.font.playfair_regular, FontWeight.Normal),
-    Font(R.font.playfair_bold, FontWeight.Bold)
-)
-
-val FiraCodeFontFamily = FontFamily(
-    Font(R.font.firacode_regular, FontWeight.Normal)
-)
+// Packaged custom fonts pruned in V3.3 for size reduction. Using system defaults instead.
 
 // ═══════════════════════════════════════════════════════
 // NOVA FONT FAMILIES — Futuristic Typography Trio
@@ -49,6 +29,8 @@ val JetBrainsMono = FontFamily(
     Font(R.font.jetbrains_mono_bold, FontWeight.Bold),
     Font(R.font.jetbrains_mono_extrabold, FontWeight.ExtraBold)
 )
+
+val FiraCodeFontFamily = JetBrainsMono
 
 val SpaceGrotesk = FontFamily(
     Font(R.font.space_grotesk_regular, FontWeight.Normal),
@@ -237,10 +219,10 @@ fun getTypographyForFont(fontName: String): Typography {
         return AneganTypography
     }
     val fontFamily = when (fontName) {
-        "Outfit" -> OutfitFontFamily
-        "Montserrat" -> MontserratFontFamily
-        "Playfair Display" -> PlayfairFontFamily
-        "Fira Code" -> FiraCodeFontFamily
+        "Outfit" -> FontFamily.SansSerif
+        "Montserrat" -> FontFamily.SansSerif
+        "Playfair Display" -> FontFamily.Serif
+        "Fira Code" -> FontFamily.Monospace
         else -> FontFamily.SansSerif
     }
     return Typography(

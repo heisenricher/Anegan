@@ -1,6 +1,6 @@
 # Proguard rules for Anegan
 
-# Keep PDFBox Android classes
+# Keep PDFBox Android classes (needed for rendering fonts via reflection)
 -keep class com.tom_roush.pdfbox.** { *; }
 -dontwarn com.tom_roush.pdfbox.**
 
@@ -15,59 +15,18 @@
     <init>(...);
 }
 
-# Google Play Services & ML Kit (OCR / Segmenter)
--keep class com.google.android.gms.internal.** { *; }
--dontwarn com.google.android.gms.internal.**
--keep class com.google.android.gms.tasks.** { *; }
--dontwarn com.google.android.gms.tasks.**
--keep class com.google.mlkit.** { *; }
--dontwarn com.google.mlkit.**
+# JCIFS SMB (smb-share module) - uses heavy reflection for SMB network protocols
+-keep class jcifs.** { *; }
+-dontwarn jcifs.**
 
-# ZXing Barcode Scanning
--keep class com.google.zxing.** { *; }
--dontwarn com.google.zxing.**
-
-# Room Database
--keep class * extends androidx.room.RoomDatabase
--keep class * extends androidx.room.RoomDatabase { *; }
--keep class androidx.room.RoomDatabase { *; }
--keep @androidx.room.Entity class *
--keep @androidx.room.Dao class *
--dontwarn androidx.room.**
-
-# WorkManager
--keep class androidx.work.** { *; }
--dontwarn androidx.work.**
-
-# exp4j calculator engine
+# exp4j calculator engine - uses reflection to parse mathematical function names
 -keep class net.objecthunter.exp4j.** { *; }
 -dontwarn net.objecthunter.exp4j.**
 
-# Retrofit (currency API)
--keep class retrofit2.** { *; }
--dontwarn retrofit2.**
--keep class okhttp3.** { *; }
--dontwarn okhttp3.**
-
-# Markwon (markdown rendering)
--keep class io.noties.markwon.** { *; }
--dontwarn io.noties.markwon.**
-
-# Compose stability
--keep class androidx.compose.** { *; }
-
-# Media3 (ExoPlayer)
--keep class androidx.media3.** { *; }
--keep interface androidx.media3.** { *; }
--dontwarn androidx.media3.**
-
-# Coroutines
+# Coroutines reflection helpers
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
 -keepclassmembernames class kotlinx.** {
     volatile <fields>;
 }
 
-# JCIFS SMB (smb-share module)  
--keep class jcifs.** { *; }
--dontwarn jcifs.**

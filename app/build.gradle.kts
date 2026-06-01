@@ -33,7 +33,7 @@ android {
         versionName = "3.2.5"
         
         ndk {
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
+            abiFilters.addAll(listOf("arm64-v8a"))
         }
     }
 
